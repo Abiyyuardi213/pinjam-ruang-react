@@ -22,6 +22,14 @@ export default function HomeScreen() {
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
+        <Link href="/(admin)" style={styles.adminLink}>
+          <ThemedText type="subtitle" style={{ color: '#1A4FA0' }}>Go to Admin Panel (Shadcn) →</ThemedText>
+        </Link>
+        <Link href="/dosen_dashboard" style={[styles.adminLink, { marginTop: 12, borderColor: '#1A4FA0' }]}>
+          <ThemedText type="subtitle" style={{ color: '#1A4FA0' }}>Go to Dosen Dashboard →</ThemedText>
+        </Link>
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
         <ThemedText>
           Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
@@ -87,6 +95,13 @@ const styles = StyleSheet.create({
   stepContainer: {
     gap: 8,
     marginBottom: 8,
+  },
+  adminLink: {
+    padding: 12,
+    backgroundColor: 'rgba(26, 79, 160, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(26, 79, 160, 0.2)',
   },
   reactLogo: {
     height: 178,
