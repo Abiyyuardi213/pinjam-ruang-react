@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, ScrollView, Animated, Dimensions, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,6 +15,7 @@ interface SidebarProps {
 
 export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const slideAnim = React.useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
 
   React.useEffect(() => {
@@ -58,11 +60,25 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <SidebarItem icon="business-outline" label="Data Ruangan" />
+          <SidebarItem 
+            icon="business-outline" 
+            label="Data Ruangan" 
+            onPress={() => {
+                onClose();
+                router.push('/(admin)/rooms');
+            }}
+          />
           <SidebarItem icon="book-outline" label="Mata Kuliah" />
           <SidebarItem icon="calendar-outline" label="Peminjaman Ruang" />
           <SidebarItem icon="key-outline" label="Pemantauan Kunci" />
-          <SidebarItem icon="map-outline" label="Mapping Ruang" />
+          <SidebarItem 
+            icon="map-outline" 
+            label="Mapping Ruang" 
+            onPress={() => {
+                onClose();
+                router.push('/mapping');
+            }}
+          />
           <SidebarItem icon="people-outline" label="Dosen Pengganti" />
           <SidebarItem icon="document-text-outline" label="Ijin Kuliah" />
           
@@ -80,9 +96,9 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
   );
 }
 
-function SidebarItem({ icon, label }: { icon: any, label: string }) {
+function SidebarItem({ icon, label, onPress }: { icon: any, label: string, onPress?: () => void }) {
   return (
-    <TouchableOpacity style={styles.item}>
+    <TouchableOpacity style={styles.item} onPress={onPress}>
       <View style={styles.iconContainer}>
         <Ionicons name={icon} size={22} color="#1A4FA0" />
       </View>

@@ -20,7 +20,7 @@ export default function DosenDashboard() {
   const fetchSchedules = async () => {
     try {
       const response = await apiService.getJadwal();
-      if (response.data) {
+      if (Array.isArray(response.data)) {
         setSchedules(response.data);
       }
     } catch (error) {

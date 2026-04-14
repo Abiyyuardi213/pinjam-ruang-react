@@ -1,106 +1,173 @@
 import React from 'react';
-import { StyleSheet, View, SafeAreaView, ScrollView, TouchableOpacity, useColorScheme } from 'react-native';
+import { StyleSheet, View, SafeAreaView, ScrollView, TouchableOpacity, useColorScheme, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { apiService } from '@/services/api';
+import { useRouter } from 'expo-router';
 
 export default function AdminMonitor() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
   const [rooms, setRooms] = React.useState<any[]>([]);
+  const [schedules, setSchedules] = React.useState<any[]>([]);
   const isDark = colorScheme === 'dark';
 
+  // Shadcn Theme Colors
+  const theme = {
+    bg: isDark ? '#09090B' : '#FAFAFA',
+    text: isDark ? '#FAFAFA' : '#09090B',
+    mutedText: isDark ? '#A1A1AA' : '#71717A',
+    border: isDark ? '#27272A' : '#E4E4E7',
+    primary: '#2563EB',
+    cardBg: isDark ? '#18181A' : '#FFFFFF',
+    danger: '#EF4444',
+  };
+
   React.useEffect(() => {
-    fetchRooms();
+    fetchData();
   }, []);
 
-  const fetchRooms = async () => {
+  const fetchData = async () => {
     try {
-      const response = await apiService.getRuang();
-      if (response.data) {
-        setRooms(response.data);
+      const [ruangResp, jadwalResp] = await Promise.all([
+          apiService.getRuang(),
+          apiService.getJadwal()
+      ]);
+
+      const roomList = ruangResp.data?.data || (Array.isArray(ruangResp.data) ? ruangResp.data : []);
+      if (Array.isArray(roomList)) {
+        setRooms(roomList);
+      }
+
+      const jadwals = jadwalResp.data?.data || (Array.isArray(jadwalResp.data) ? jadwalResp.data : []);
+      if (Array.isArray(jadwals)) {
+          setSchedules(jadwals);
       }
     } catch (error) {
-      console.error('Error fetching rooms:', error);
+      console.error('Error fetching data:', error);
     }
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <SafeAreaView style={{ flex: 1 }}>
+        <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <Ionicons name="arrow-back" size={24} color={theme.text} />
+            </TouchableOpacity>
+            <ThemedText style={[styles.headerTitle, { color: theme.text }]}>Pantau Ruangan</ThemedText>
+            <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}>
+                <Ionicons name="refresh" size={22} color={theme.text} />
+            </TouchableOpacity>
+        </View>
+
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <ThemedText type="title" style={styles.title}>Pantau Ruangan</ThemedText>
-                <TouchableOpacity onPress={fetchRooms}>
-                    <Ionicons name="refresh" size={24} color="#1A4FA0" />
-                </TouchableOpacity>
-            </View>
-            <ThemedText style={styles.subtitle}>Status penggunaan {rooms.length} ruangan kampus saat ini.</ThemedText>
-          </View>
+          <ThemedText style={[styles.subtitle, { color: theme.mutedText }]}>Status real-time dari {rooms.length} ruangan yang tersinkronisasi dalam sistem saat ini.</ThemedText>
 
           <View style={styles.roomGrid}>
             {rooms.length > 0 ? (
-                rooms.map((room, index) => (
-                    <RoomCard 
-                      key={index}
-                      id={room.nama_ruang || room.id} 
-                      status="Available" 
-                      isDark={isDark} 
-                    />
-                ))
+                rooms.map((room, index) => {
+                    const roomIdentifier = room.ruangid || room.nama_ruang || room.id;
+                    const activeSchedule = schedules.find(s => s.ruang_id === roomIdentifier || s.room_name === roomIdentifier || s.ruang_id === room.ruangid);
+                    const isInUse = !!activeSchedule;
+
+                    return (
+                        <View key={index} style={[styles.roomItem, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+                            <View style={[styles.roomIconBox, { backgroundColor: isInUse ? (isDark ? '#EF444420' : '#FEF2F2') : (isDark ? '#2563EB20' : '#EFF6FF') }]}>
+                                <Ionicons name={isInUse ? "close-circle" : "map-outline"} size={20} color={isInUse ? theme.danger : theme.primary} />
+                            </View>
+                            <View style={styles.roomInfo}>
+                                <ThemedText style={[styles.roomId, { color: theme.text }]}>{room.nama_ruang || room.ruangket || room.ruangid}</ThemedText>
+                                {isInUse ? (
+                                    <ThemedText style={[styles.roomSub, { color: theme.danger }]}>Dosen: {activeSchedule.dosen_name || activeSchedule.dosen_id || 'Sedang Mengajar'}</ThemedText>
+                                ) : (
+                                    <ThemedText style={[styles.roomSub, { color: theme.mutedText }]}>Kapasitas: {room.kapasitas || room.ruangkapasitas || 0}</ThemedText>
+                                )}
+                            </View>
+                            <View style={[styles.statusBadge, { backgroundColor: isInUse ? (isDark ? '#EF444420' : '#FEF2F2') : (isDark ? '#22C55E20' : '#DCFCE7') }]}>
+                                <ThemedText style={[styles.statusText, { color: isInUse ? theme.danger : (isDark ? '#4ADE80' : '#166534') }]}>
+                                    {isInUse ? 'In Use' : 'Available'}
+                                </ThemedText>
+                            </View>
+                        </View>
+                    );
+                })
             ) : (
                 <View style={{ padding: 40, alignItems: 'center' }}>
-                    <ThemedText style={{ opacity: 0.5 }}>Memuat data ruangan...</ThemedText>
+                    <ThemedText style={{ color: theme.mutedText }}>Memuat data ruangan...</ThemedText>
                 </View>
             )}
           </View>
+          <View style={{ height: 100 }} />
         </ScrollView>
       </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-function RoomCard({ id, status, course, isDark }: any) {
-  const statusColor = status === 'Occupied' ? '#1A4FA0' : status === 'Available' ? '#94A3B8' : '#F59E0B';
-  
-  return (
-    <Card style={styles.roomCard}>
-      <CardHeader style={styles.roomHeader}>
-        <View style={styles.roomTop}>
-          <ThemedText style={styles.roomId}>{id}</ThemedText>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-        </View>
-        <ThemedText style={[styles.statusText, { color: statusColor }]}>{status}</ThemedText>
-      </CardHeader>
-      {course && (
-        <View style={styles.roomFooter}>
-          <ThemedText style={styles.courseName} numberOfLines={1}>{course}</ThemedText>
-        </View>
-      )}
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 24 },
-  header: { marginBottom: 32 },
-  title: { fontSize: 24, fontWeight: 'bold', letterSpacing: -1 },
-  subtitle: { fontSize: 13, opacity: 0.5, marginTop: 4 },
-  roomGrid: { gap: 12 },
-  roomCard: { marginBottom: 4 },
-  roomHeader: { padding: 16 },
-  roomTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  roomId: { fontSize: 18, fontWeight: 'bold' },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  roomFooter: { 
-    padding: 16, 
-    paddingTop: 0, 
-    borderTopWidth: 0, 
-    opacity: 0.8 
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    paddingTop: Platform.OS === 'android' ? 40 : 16,
   },
-  courseName: { fontSize: 13, opacity: 0.6 }
+  backBtn: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  refreshBtn: {
+    padding: 8,
+    marginRight: -8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  scrollContent: { padding: 24 },
+  subtitle: { 
+    fontSize: 14, 
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  roomGrid: { gap: 12 },
+  roomItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  roomIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  roomInfo: {
+    flex: 1,
+  },
+  roomId: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  roomSub: {
+    fontSize: 13,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });

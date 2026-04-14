@@ -1,89 +1,116 @@
 import React from 'react';
-import { StyleSheet, View, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, SafeAreaView, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useColorScheme } from 'react-native';
 
 export default function AdminProfile() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Shadcn Theme Colors
+  const theme = {
+    bg: isDark ? '#09090B' : '#FAFAFA',
+    text: isDark ? '#FAFAFA' : '#09090B',
+    mutedText: isDark ? '#A1A1AA' : '#71717A',
+    border: isDark ? '#27272A' : '#E4E4E7',
+    primary: '#2563EB',
+    cardBg: isDark ? '#18181A' : '#FFFFFF',
+    danger: '#EF4444',
+  };
+
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.profileHeader}>
-            <View style={styles.avatarLarge}>
-              <ThemedText style={styles.avatarTextLarge}>AD</ThemedText>
+            <View style={[styles.avatarLarge, { backgroundColor: theme.primary, borderColor: theme.border }]}>
+              <ThemedText style={{ fontSize: 32, fontWeight: '700', color: '#FFF' }}>AD</ThemedText>
             </View>
-            <ThemedText type="title" style={styles.userName}>Administrator</ThemedText>
-            <ThemedText style={styles.userEmail}>admin@kampus.ac.id</ThemedText>
+            <ThemedText style={[styles.userName, { color: theme.text }]}>Administrator</ThemedText>
+            <ThemedText style={[styles.userEmail, { color: theme.mutedText }]}>admin@kampus.ac.id</ThemedText>
           </View>
 
           <View style={styles.menuSection}>
-            <ThemedText style={styles.sectionLabel}>PENGATURAN AKUN</ThemedText>
-            <Card>
-              <MenuItem icon="person-outline" label="Edit Profil" />
-              <MenuItem icon="shield-checkmark-outline" label="Keamanan" />
-              <MenuItem icon="notifications-outline" label="Notifikasi" last />
-            </Card>
+            <ThemedText style={[styles.sectionLabel, { color: theme.mutedText }]}>PENGATURAN AKUN</ThemedText>
+            <View style={[styles.cardGroup, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+              <MenuItem icon="person-outline" label="Edit Profil" theme={theme} />
+              <MenuItem icon="shield-checkmark-outline" label="Keamanan" theme={theme} />
+              <MenuItem icon="notifications-outline" label="Notifikasi" theme={theme} last />
+            </View>
           </View>
 
           <View style={styles.menuSection}>
-            <ThemedText style={styles.sectionLabel}>UMUM</ThemedText>
-            <Card>
-              <MenuItem icon="help-circle-outline" label="Bantuan" />
-              <MenuItem icon="information-circle-outline" label="Tentang Aplikasi" last />
-            </Card>
+            <ThemedText style={[styles.sectionLabel, { color: theme.mutedText }]}>UMUM</ThemedText>
+            <View style={[styles.cardGroup, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+              <MenuItem icon="help-circle-outline" label="Bantuan" theme={theme} />
+              <MenuItem icon="information-circle-outline" label="Tentang Aplikasi" theme={theme} last />
+            </View>
           </View>
 
-          <TouchableOpacity style={styles.logoutButton}>
-            <ThemedText style={styles.logoutText}>Keluar Sesi</ThemedText>
+          <TouchableOpacity style={[styles.logoutButton, { borderColor: theme.border }]}>
+            <ThemedText style={[styles.logoutText, { color: theme.danger }]}>Keluar Sesi</ThemedText>
           </TouchableOpacity>
+          
+          <View style={{ height: 100 }} />
         </ScrollView>
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
 
-function MenuItem({ icon, label, last }: any) {
+function MenuItem({ icon, label, last, theme }: any) {
   return (
-    <TouchableOpacity style={[styles.menuItem, last && { borderBottomWidth: 0 }]}>
+    <TouchableOpacity style={[styles.menuItem, !last && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
       <View style={styles.menuLeft}>
-        <Ionicons name={icon} size={20} color="#94A3B8" />
-        <ThemedText style={styles.menuLabel}>{label}</ThemedText>
+        <Ionicons name={icon} size={20} color={theme.mutedText} />
+        <ThemedText style={[styles.menuLabel, { color: theme.text }]}>{label}</ThemedText>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+      <Ionicons name="chevron-forward" size={18} color={theme.mutedText} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 24 },
+  scrollContent: { 
+      padding: 24,
+      paddingTop: Platform.OS === 'android' ? 40 : 20, 
+  },
   profileHeader: { alignItems: 'center', marginBottom: 40, marginTop: 20 },
   avatarLarge: { 
-    width: 100, 
-    height: 100, 
-    borderRadius: 50, 
-    backgroundColor: '#1A4FA0', 
+    width: 96, 
+    height: 96, 
+    borderRadius: 48, 
     justifyContent: 'center', 
     alignItems: 'center',
-    marginBottom: 16
+    marginBottom: 16,
+    borderWidth: 4,
   },
-  avatarTextLarge: { fontSize: 32, fontWeight: 'bold', color: '#000' },
-  userName: { fontSize: 24, fontWeight: 'bold' },
-  userEmail: { fontSize: 14, opacity: 0.5, marginTop: 4 },
-  menuSection: { marginBottom: 24 },
-  sectionLabel: { fontSize: 11, fontWeight: 'bold', color: '#94A3B8', marginBottom: 8, marginLeft: 4 },
+  userName: { fontSize: 24, fontWeight: 'bold', letterSpacing: -0.5 },
+  userEmail: { fontSize: 14, marginTop: 4 },
+  menuSection: { marginBottom: 32 },
+  sectionLabel: { fontSize: 12, fontWeight: '600', marginBottom: 8, marginLeft: 4, letterSpacing: 0.5 },
+  cardGroup: {
+      borderRadius: 16,
+      borderWidth: 1,
+      overflow: 'hidden',
+  },
   menuItem: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#33333320'
   },
   menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  menuLabel: { fontSize: 15 },
-  logoutButton: { marginTop: 16, alignItems: 'center', padding: 16 },
-  logoutText: { color: '#FF4444', fontWeight: 'bold' }
+  menuLabel: { fontSize: 15, fontWeight: '500' },
+  logoutButton: { 
+      marginTop: 8, 
+      alignItems: 'center', 
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+  },
+  logoutText: { fontWeight: '600', fontSize: 15 }
 });
