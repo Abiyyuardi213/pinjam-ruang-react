@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, SafeAreaView, Platform, useColorScheme, StatusBar, Image } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity, Platform, useColorScheme, StatusBar, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { AdminSidebar } from '@/components/ui/admin-sidebar';

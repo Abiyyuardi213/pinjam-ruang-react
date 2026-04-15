@@ -1,14 +1,16 @@
 import React from 'react';
-import { View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, useColorScheme, Platform, StatusBar } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { View, StyleSheet, ScrollView, TouchableOpacity, useColorScheme, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useGlobalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
 
 export default function RoomDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const roomId = params.id as string;
+  const localParams = useLocalSearchParams();
+  const globalParams = useGlobalSearchParams();
+  const roomId = (localParams.id || globalParams.id) as string;
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 

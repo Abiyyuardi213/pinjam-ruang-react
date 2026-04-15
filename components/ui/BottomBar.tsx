@@ -29,7 +29,7 @@ export function BottomBar({ state, descriptors, navigation }: BottomTabBarProps)
         const { options } = descriptors[route.key];
         
         // Skip tabs without icons
-        const hiddenRoutes = ['rooms', 'mapping'];
+        const hiddenRoutes = ['rooms', 'mapping', 'room-detail'];
         if (options.href === null || hiddenRoutes.includes(route.name)) {
             return null;
         }
