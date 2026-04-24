@@ -12,19 +12,21 @@ export default function RoomDetailScreen() {
   const globalParams = useGlobalSearchParams();
   const roomId = (localParams.id || globalParams.id) as string;
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  
+  // Force Light Mode for Admin Dashboard
+  const isDark = false;
 
   const [room, setRoom] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
-  // Shadcn Theme Colors
+  // Shadcn Light Theme Colors
   const theme = {
-    bg: isDark ? '#09090B' : '#FAFAFA',
-    text: isDark ? '#FAFAFA' : '#09090B',
-    mutedText: isDark ? '#A1A1AA' : '#71717A',
-    border: isDark ? '#27272A' : '#E4E4E7',
+    bg: '#FAFAFA',
+    text: '#09090B',
+    mutedText: '#71717A',
+    border: '#E4E4E7',
     primary: '#2563EB',
-    cardBg: isDark ? '#18181A' : '#FFFFFF',
+    cardBg: '#FFFFFF',
   };
 
   React.useEffect(() => {
@@ -67,7 +69,7 @@ export default function RoomDetailScreen() {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <TouchableOpacity onPress={() => router.push('/dashboard-admin/rooms')} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={theme.text} />
             </TouchableOpacity>
             <ThemedText style={[styles.headerTitle, { color: theme.text }]}>Detail Ruangan</ThemedText>
@@ -161,7 +163,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   cardTop: {
-    backgroundColor: '#1E1E1E', // Dark top area
+    backgroundColor: '#2563EB', // Primary Blue
     padding: 24,
     minHeight: 140,
     justifyContent: 'flex-end',
@@ -172,9 +174,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.25)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -213,7 +215,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#A1A1AA',
+    color: '#71717A',
     marginBottom: 6,
     letterSpacing: 0.5,
   },

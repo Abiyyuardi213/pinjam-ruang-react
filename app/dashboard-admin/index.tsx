@@ -6,7 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { AdminSidebar } from '@/components/ui/admin-sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiService } from '@/services/api';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 export default function AdminDashboard() {
   const colorScheme = useColorScheme();
@@ -14,18 +14,28 @@ export default function AdminDashboard() {
   const [sidebarVisible, setSidebarVisible] = React.useState(false);
   const [stats, setStats] = React.useState({ ruang: 0, dosen: 0 });
   const [recentJadwal, setRecentJadwal] = React.useState<any[]>([]);
-  const isDark = colorScheme === 'dark';
+  
+  // Gunakan useFocusEffect agar dashboard selalu sinkron dengan data terbaru
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
-  // Shadcn Theme Colors
+  // Force Light Theme untuk Dashboard Admin
+  const isDark = false; 
+
+  // Shadcn Light Theme Colors
   const theme = {
-    bg: isDark ? '#09090B' : '#FAFAFA', // Very light gray/white for light mode
-    text: isDark ? '#FAFAFA' : '#09090B',
-    mutedText: isDark ? '#A1A1AA' : '#71717A',
-    border: isDark ? '#27272A' : '#E4E4E7',
+    bg: '#FAFAFA', 
+    text: '#09090B',
+    mutedText: '#71717A',
+    border: '#E4E4E7',
     primary: '#2563EB', // Blue
-    primaryForeground: '#FFFFFF', // White text on blue button
-    cardBg: isDark ? '#18181A' : '#FFFFFF',
+    primaryForeground: '#FFFFFF',
+    cardBg: '#FFFFFF',
   };
+
 
   React.useEffect(() => {
     fetchData();
@@ -33,10 +43,10 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [dosenData, ruangData, jadwalData] = await Promise.all([
+      const [dosenData, ruangData, peminjamanData] = await Promise.all([
         apiService.getDosen(),
         apiService.getRuang(),
-        apiService.getJadwal(),
+        apiService.getPeminjaman(),
       ]);
 
       setStats({
@@ -44,9 +54,8 @@ export default function AdminDashboard() {
         ruang: ruangData.data?.total || (Array.isArray(ruangData.data) ? ruangData.data.length : 0),
       });
 
-      const schedules = jadwalData.data?.data || (Array.isArray(jadwalData.data) ? jadwalData.data : []);
-      if (Array.isArray(schedules)) {
-        setRecentJadwal(schedules.slice(0, 5));
+      if (peminjamanData.success) {
+        setRecentJadwal(peminjamanData.data.slice(0, 5));
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -102,27 +111,28 @@ export default function AdminDashboard() {
                 <ThemedText style={[styles.mainCardTitle, { color: theme.text }]}>Cek Presensi Ruang</ThemedText>
                 <ThemedText style={[styles.mainCardDesc, { color: theme.mutedText }]}>Pindai kode QR dosen untuk memvalidasi penggunaan ruangan secara real-time.</ThemedText>
              </View>
-             <TouchableOpacity style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => router.push('/scan')}>
+             <TouchableOpacity style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => router.push('/dashboard-admin/scan')}>
                 <Ionicons name="qr-code-outline" size={20} color={theme.primaryForeground} />
                 <ThemedText style={[styles.primaryButtonText, { color: theme.primaryForeground }]}>Scan Validasi</ThemedText>
              </TouchableOpacity>
           </View>
 
           <View style={styles.secondaryActions}>
-            <TouchableOpacity style={[styles.outlineBtn, { borderColor: theme.border }]} onPress={() => router.push('/rooms')}>
+            <TouchableOpacity style={[styles.outlineBtn, { borderColor: theme.border }]} onPress={() => router.push('/dashboard-admin/rooms')}>
                 <Ionicons name="folder-outline" size={18} color={theme.text} />
                 <ThemedText style={[styles.outlineBtnText, { color: theme.text }]}>Data Master</ThemedText>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.outlineBtn, { borderColor: theme.border }]} onPress={() => router.push('/monitor')}>
+            <TouchableOpacity style={[styles.outlineBtn, { borderColor: theme.border }]} onPress={() => router.push('/dashboard-admin/monitor')}>
                 <Ionicons name="grid-outline" size={18} color={theme.text} />
                 <ThemedText style={[styles.outlineBtnText, { color: theme.text }]}>Pantau Ruang</ThemedText>
             </TouchableOpacity>
           </View>
 
+
           {/* Activity Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>Log Jadwal Terakhir</ThemedText>
+              <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>Aktivitas Peminjaman Terakhir</ThemedText>
               <TouchableOpacity onPress={fetchData}>
                 <Ionicons name="refresh" size={18} color={theme.mutedText} />
               </TouchableOpacity>
@@ -131,20 +141,26 @@ export default function AdminDashboard() {
             <View style={[styles.logList, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
               {recentJadwal.length === 0 ? (
                  <View style={{ padding: 32, alignItems: 'center' }}>
-                     <ThemedText style={{ color: theme.mutedText, fontSize: 13 }}>Memuat data jadwal...</ThemedText>
+                     <ThemedText style={{ color: theme.mutedText, fontSize: 13 }}>Belum ada aktivitas peminjaman.</ThemedText>
                  </View>
               ) : (
                 recentJadwal.map((item, index) => (
                   <View key={index} style={[styles.logItem, index !== recentJadwal.length - 1 && { borderBottomColor: theme.border, borderBottomWidth: 1 }]}>
-                    <View style={[styles.logIcon, { backgroundColor: isDark ? '#2563EB20' : '#EFF6FF' }]}>
-                        <Ionicons name="timer-outline" size={18} color={theme.primary} />
+                    <View style={[styles.logIcon, { backgroundColor: item.status === 'Dipinjam' ? '#EFF6FF' : '#DCFCE7' }]}>
+                        <Ionicons 
+                          name={item.status === 'Dipinjam' ? "time-outline" : "checkmark-done-outline"} 
+                          size={18} 
+                          color={item.status === 'Dipinjam' ? theme.primary : '#166534'} 
+                        />
                     </View>
                     <View style={styles.logInfo}>
-                        <ThemedText style={[styles.logName, { color: theme.text }]}>{item.dosen_name || 'Dosen Pengajar'}</ThemedText>
-                        <ThemedText style={[styles.logRoom, { color: theme.mutedText }]}>{item.ruang_id || item.room_name || 'Ruang'} • {item.jam_mulai || '00:00'}</ThemedText>
+                        <ThemedText style={[styles.logName, { color: theme.text }]}>{item.dosen_name}</ThemedText>
+                        <ThemedText style={[styles.logRoom, { color: theme.mutedText }]}>{item.ruang_id} • {item.waktu_pinjam}</ThemedText>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: isDark ? '#22C55E20' : '#DCFCE7' }]}>
-                        <ThemedText style={[styles.statusText, { color: isDark ? '#4ADE80' : '#166534' }]}>Active</ThemedText>
+                    <View style={[styles.statusBadge, { backgroundColor: item.status === 'Dipinjam' ? '#EFF6FF' : '#DCFCE7' }]}>
+                        <ThemedText style={[styles.statusText, { color: item.status === 'Dipinjam' ? theme.primary : '#166534' }]}>
+                          {item.status}
+                        </ThemedText>
                     </View>
                   </View>
                 ))

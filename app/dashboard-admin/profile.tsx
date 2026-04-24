@@ -5,20 +5,30 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { useColorScheme } from 'react-native';
 
-export default function AdminProfile() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+import { useRouter } from 'expo-router';
 
-  // Shadcn Theme Colors
+export default function AdminProfile() {
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  
+  // Force Light Theme
+  const isDark = false;
+
+  const handleLogout = () => {
+    router.replace('/login');
+  };
+
+  // Shadcn Light Theme Colors
   const theme = {
-    bg: isDark ? '#09090B' : '#FAFAFA',
-    text: isDark ? '#FAFAFA' : '#09090B',
-    mutedText: isDark ? '#A1A1AA' : '#71717A',
-    border: isDark ? '#27272A' : '#E4E4E7',
+    bg: '#FAFAFA',
+    text: '#09090B',
+    mutedText: '#71717A',
+    border: '#E4E4E7',
     primary: '#2563EB',
-    cardBg: isDark ? '#18181A' : '#FFFFFF',
+    cardBg: '#FFFFFF',
     danger: '#EF4444',
   };
+
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -36,8 +46,18 @@ export default function AdminProfile() {
           <View style={styles.menuSection}>
             <ThemedText style={[styles.sectionLabel, { color: theme.mutedText }]}>PENGATURAN AKUN</ThemedText>
             <View style={[styles.cardGroup, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-              <MenuItem icon="person-outline" label="Edit Profil" theme={theme} />
-              <MenuItem icon="shield-checkmark-outline" label="Keamanan" theme={theme} />
+              <MenuItem 
+                icon="person-outline" 
+                label="Edit Profil" 
+                theme={theme} 
+                onPress={() => router.push('/dashboard-admin/edit-profile')}
+              />
+              <MenuItem 
+                icon="shield-checkmark-outline" 
+                label="Keamanan" 
+                theme={theme} 
+                onPress={() => router.push('/dashboard-admin/security')}
+              />
               <MenuItem icon="notifications-outline" label="Notifikasi" theme={theme} last />
             </View>
           </View>
@@ -45,14 +65,29 @@ export default function AdminProfile() {
           <View style={styles.menuSection}>
             <ThemedText style={[styles.sectionLabel, { color: theme.mutedText }]}>UMUM</ThemedText>
             <View style={[styles.cardGroup, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-              <MenuItem icon="help-circle-outline" label="Bantuan" theme={theme} />
-              <MenuItem icon="information-circle-outline" label="Tentang Aplikasi" theme={theme} last />
+              <MenuItem 
+                icon="help-circle-outline" 
+                label="Bantuan" 
+                theme={theme} 
+                onPress={() => router.push('/dashboard-admin/help')}
+              />
+              <MenuItem 
+                icon="information-circle-outline" 
+                label="Tentang Aplikasi" 
+                theme={theme} 
+                last 
+                onPress={() => router.push('/dashboard-admin/about')}
+              />
             </View>
           </View>
 
-          <TouchableOpacity style={[styles.logoutButton, { borderColor: theme.border }]}>
+          <TouchableOpacity 
+            style={[styles.logoutButton, { borderColor: theme.border }]}
+            onPress={handleLogout}
+          >
             <ThemedText style={[styles.logoutText, { color: theme.danger }]}>Keluar Sesi</ThemedText>
           </TouchableOpacity>
+
           
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -61,9 +96,12 @@ export default function AdminProfile() {
   );
 }
 
-function MenuItem({ icon, label, last, theme }: any) {
+function MenuItem({ icon, label, last, theme, onPress }: any) {
   return (
-    <TouchableOpacity style={[styles.menuItem, !last && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
+    <TouchableOpacity 
+        style={[styles.menuItem, !last && { borderBottomWidth: 1, borderBottomColor: theme.border }]}
+        onPress={onPress}
+    >
       <View style={styles.menuLeft}>
         <Ionicons name={icon} size={20} color={theme.mutedText} />
         <ThemedText style={[styles.menuLabel, { color: theme.text }]}>{label}</ThemedText>

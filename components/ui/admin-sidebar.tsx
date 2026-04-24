@@ -65,20 +65,35 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
             label="Data Ruangan" 
             onPress={() => {
                 onClose();
-                router.push('/(admin)/rooms');
+                router.push('/dashboard-admin/rooms');
             }}
           />
-          <SidebarItem icon="book-outline" label="Mata Kuliah" />
-          <SidebarItem icon="calendar-outline" label="Peminjaman Ruang" />
+          <SidebarItem 
+            icon="book-outline" 
+            label="Mata Kuliah" 
+            onPress={() => {
+                onClose();
+                router.push('/dashboard-admin/subjects');
+            }}
+          />
+          <SidebarItem 
+            icon="calendar-outline" 
+            label="Peminjaman Ruang" 
+            onPress={() => {
+                onClose();
+                router.push('/dashboard-admin/peminjaman');
+            }}
+          />
           <SidebarItem icon="key-outline" label="Pemantauan Kunci" />
           <SidebarItem 
             icon="map-outline" 
             label="Mapping Ruang" 
             onPress={() => {
                 onClose();
-                router.push('/mapping');
+                router.push('/dashboard-admin/mapping');
             }}
           />
+
           <SidebarItem icon="people-outline" label="Dosen Pengganti" />
           <SidebarItem icon="document-text-outline" label="Ijin Kuliah" />
           

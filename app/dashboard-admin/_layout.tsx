@@ -23,6 +23,18 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="peminjaman/index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="peminjaman/create"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="mapping"
         options={{
           href: null,
@@ -30,6 +42,42 @@ export default function AdminLayout() {
       />
       <Tabs.Screen
         name="room-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="subjects"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="subject-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-profile"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="security"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="help"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="about"
         options={{
           href: null,
         }}

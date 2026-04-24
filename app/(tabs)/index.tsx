@@ -22,9 +22,10 @@ export default function HomeScreen() {
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <Link href="/(admin)" style={styles.adminLink}>
+        <Link href="/dashboard-admin" style={styles.adminLink}>
           <ThemedText type="subtitle" style={{ color: '#1A4FA0' }}>Go to Admin Panel (Shadcn) →</ThemedText>
         </Link>
+
         <Link href="/dosen_dashboard" style={[styles.adminLink, { marginTop: 12, borderColor: '#1A4FA0' }]}>
           <ThemedText type="subtitle" style={{ color: '#1A4FA0' }}>Go to Dosen Dashboard →</ThemedText>
         </Link>

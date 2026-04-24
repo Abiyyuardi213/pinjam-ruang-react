@@ -55,16 +55,19 @@ export default function MappingRuangScreen() {
   const [selectedPak, setSelectedPak] = React.useState<string>('all');
   const [selectedHari, setSelectedHari] = React.useState<string>('all');
   const [loading, setLoading] = React.useState(true);
-  const isDark = colorScheme === 'dark';
+  
+  // Force Light Theme
+  const isDark = false;
 
   const theme = {
-    bg: isDark ? '#09090B' : '#FAFAFA',
-    text: isDark ? '#FAFAFA' : '#09090B',
-    mutedText: isDark ? '#A1A1AA' : '#71717A',
-    border: isDark ? '#27272A' : '#E4E4E7',
+    bg: '#FAFAFA',
+    text: '#09090B',
+    mutedText: '#71717A',
+    border: '#E4E4E7',
     primary: '#2563EB',
-    cardBg: isDark ? '#18181A' : '#FFFFFF',
+    cardBg: '#FFFFFF',
   };
+
 
   React.useEffect(() => {
     fetchData();
@@ -73,20 +76,39 @@ export default function MappingRuangScreen() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      console.log('[MAPPING] Fetching all rooms and schedules (all pages)...');
       const [ruangResp, jadwalResp] = await Promise.all([
           apiService.getRuang(),
           apiService.getJadwal()
       ]);
 
-      const roomList = ruangResp.data?.data || (Array.isArray(ruangResp.data) ? ruangResp.data : []);
-      if (Array.isArray(roomList)) {
-        setRooms(roomList);
+      // Handle data dari apiService (sudah berbentuk array list)
+      const roomList = Array.isArray(ruangResp.data) ? ruangResp.data : [];
+      if (roomList.length > 0) {
+        // Hanya tampilkan ruangan dengan ruangstatus = true (sesuai permintaan user)
+        const activeRooms = roomList.filter((room: any) => 
+            room.ruangstatus === true || 
+            room.ruangstatus === 'true' || 
+            room.ruangstatus === 1 || 
+            room.ruangstatus === '1'
+        );
+
+        // Urutkan dari abjad A ke Z
+        const sortedRooms = activeRooms.sort((a: any, b: any) => {
+            const labelA = String(a.ruangid || a.nama_ruang || a.id || '');
+            const labelB = String(b.ruangid || b.nama_ruang || b.id || '');
+            return labelA.localeCompare(labelB);
+        });
+
+        setRooms(sortedRooms);
       }
 
-      const jadwals = jadwalResp.data?.data || (Array.isArray(jadwalResp.data) ? jadwalResp.data : []);
-      if (Array.isArray(jadwals)) {
+      const jadwals = Array.isArray(jadwalResp.data) ? jadwalResp.data : [];
+      if (jadwals.length > 0) {
           setSchedules(jadwals);
       }
+      
+      console.log(`[MAPPING] Loaded ${roomList.length} rooms and ${jadwals.length} schedules`);
     } catch (error) {
       console.error('Error fetching mapping data:', error);
     } finally {
@@ -97,19 +119,40 @@ export default function MappingRuangScreen() {
   const uniquePaks = Array.from(new Set(schedules.map(s => s.pakid).filter(Boolean)));
   const uniqueDays = Array.from(new Set(schedules.map(s => s.haridesc || s.hari).filter(Boolean)));
 
-  const filteredSchedules = schedules.filter(s => {
-      if (selectedPak !== 'all' && s.pakid !== selectedPak) return false;
-      if (selectedHari !== 'all' && (s.haridesc !== selectedHari && s.hari !== selectedHari)) return false;
-      return true;
-  });
+  const filteredSchedules = React.useMemo(() => {
+      return schedules.filter(s => {
+          if (selectedPak !== 'all' && s.pakid !== selectedPak) return false;
+          if (selectedHari !== 'all' && (s.haridesc !== selectedHari && s.hari !== selectedHari)) return false;
+          return true;
+      });
+  }, [schedules, selectedPak, selectedHari]);
+
+  // Optimasi Lookup Jadwal dengan Map (O(1)) untuk menangani ribuan data dengan lancar
+  const scheduleLookup = React.useMemo(() => {
+    const map = new Map();
+    filteredSchedules.forEach(s => {
+        const roomId = s.ruang_id || s.ruangid || s.room_name;
+        const start = s.jammulai || s.jam_mulai;
+        const end = s.jamhingga || s.jam_hingga;
+        
+        if (roomId && start && end) {
+            const startStr = start.substring(0, 5); // HH:mm
+            const endStr = end.substring(0, 5);     // HH:mm
+            
+            // Masukkan jadwal ke setiap slot waktu yang dilewati (berdasarkan jam mulai-selesai / SKS)
+            TIME_SLOTS.forEach(slot => {
+                // Jika slot waktu berada di antara jam mulai dan jam selesai
+                if (slot.time >= startStr && slot.time < endStr) {
+                    map.set(`${roomId}_${slot.time}`, s);
+                }
+            });
+        }
+    });
+    return map;
+  }, [filteredSchedules]);
 
   const getScheduleForSlot = (roomIdentifier: string, slotTime: string) => {
-      const roomSchedules = filteredSchedules.filter(s => s.ruang_id === roomIdentifier || s.ruangid === roomIdentifier || s.room_name === roomIdentifier);
-      return roomSchedules.find(s => {
-          if (!s.jammulai && !s.jam_mulai) return false;
-          const start = s.jammulai || s.jam_mulai;
-          return start.startsWith(slotTime);
-      });
+      return scheduleLookup.get(`${roomIdentifier}_${slotTime}`);
   };
 
   return (
@@ -118,7 +161,7 @@ export default function MappingRuangScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <TouchableOpacity onPress={() => router.push('/dashboard-admin')} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={theme.text} />
             </TouchableOpacity>
             <ThemedText style={[styles.headerTitle, { color: theme.text }]}>Mapping Ruang</ThemedText>

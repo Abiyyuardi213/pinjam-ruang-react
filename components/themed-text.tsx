@@ -37,28 +37,29 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
-    fontFamily: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }),
+    fontFamily: 'Inter_400Regular',
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '600',
-    letterSpacing: -0.2,
+    fontFamily: 'Inter_600SemiBold',
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
     lineHeight: 38,
     letterSpacing: -1.2,
+    fontFamily: 'Inter_700Bold',
   },
   subtitle: {
     fontSize: 20,
-    fontWeight: 'bold',
     letterSpacing: -0.5,
+    fontFamily: 'Inter_600SemiBold',
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
     color: '#1A4FA0',
+    fontFamily: 'Inter_400Regular',
   },
 });
+

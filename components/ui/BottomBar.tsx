@@ -7,13 +7,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export function BottomBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const isDark = colorScheme === 'dark';
   
-  // Shadcn style floating nav colors
-  const navBg = isDark ? '#18181A' : '#FFFFFF';
-  const navBorder = isDark ? '#27272A' : '#E2E8F0';
+  // Force Light Mode untuk Bottom Bar
+  const isDark = false; 
+  
+  // Shadcn style floating nav colors (Light)
+  const navBg = '#FFFFFF';
+  const navBorder = '#E2E8F0';
   const activeColor = '#2563EB'; // Shadcn Blue
-  const inactiveColor = isDark ? '#A1A1AA' : '#64748B'; // Muted text
+  const inactiveColor = '#64748B'; // Muted text
+
 
   return (
     <View style={[
@@ -28,13 +31,21 @@ export function BottomBar({ state, descriptors, navigation }: BottomTabBarProps)
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         
-        // Skip tabs without icons
-        const hiddenRoutes = ['rooms', 'mapping', 'room-detail'];
-        if (options.href === null || hiddenRoutes.includes(route.name)) {
+        const isFocused = state.index === index;
+
+        // Map route names to icons. If route is not here, it won't be shown.
+        const iconMapping: Record<string, { active: string, inactive: string }> = {
+            'index': { active: 'home', inactive: 'home-outline' },
+            'scan': { active: 'qr-code', inactive: 'qr-code-outline' },
+            'monitor': { active: 'grid', inactive: 'grid-outline' },
+            'profile': { active: 'person', inactive: 'person-outline' },
+        };
+
+        if (!iconMapping[route.name]) {
             return null;
         }
 
-        const isFocused = state.index === index;
+        const iconName = isFocused ? iconMapping[route.name].active : iconMapping[route.name].inactive;
 
         const onPress = () => {
           const event = navigation.emit({
@@ -47,12 +58,6 @@ export function BottomBar({ state, descriptors, navigation }: BottomTabBarProps)
             navigation.navigate(route.name);
           }
         };
-
-        let iconName = 'home-outline';
-        if (route.name === 'index') iconName = isFocused ? 'home' : 'home-outline';
-        if (route.name === 'scan') iconName = isFocused ? 'qr-code' : 'qr-code-outline';
-        if (route.name === 'monitor') iconName = isFocused ? 'grid' : 'grid-outline';
-        if (route.name === 'profile') iconName = isFocused ? 'person' : 'person-outline';
 
         return (
           <TouchableOpacity
