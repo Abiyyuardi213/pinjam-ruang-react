@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 
 const BASE_URL = "https://admin-classroom.itats.ac.id/api/v1";
 const API_KEY =
-  "2PiwDTM6EIBkei4YH2LxAx0Hk6PzFCb8yefp2iys4GDJCgqOQ1uOwl4q86dy2eXw";
+  "UEjcau8DQBKsg76ySbDdWy5mRyx8vZNJvELhhY7xkhovLpWEfyBd1r4XMXDeGCe4";
 
 /**
  * REBUILD: Sistem API dengan Header sesuai instruksi user
@@ -57,10 +57,10 @@ export const apiService = {
   },
 
   // LOGIN
-  async login(nip: string, password: string) {
-    return this.request("/auth/login", {
+  async login(name: string, pass: string) {
+    return this.request("/admin-melbu", {
       method: "POST",
-      body: JSON.stringify({ nip, password }),
+      body: JSON.stringify({ name, pass }),
     });
   },
 
@@ -195,16 +195,32 @@ export const apiService = {
     }
   },
 
+  // Helper internal untuk mendapatkan ID Admin yang sedang login
+  _getLoggedInAdminId() {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      try {
+        const savedUser = window.localStorage.getItem("user_data");
+        if (savedUser) {
+          const user = JSON.parse(savedUser);
+          return user.nip || user.name;
+        }
+      } catch (e) {
+        console.warn("[API] Gagal mengambil user_data dari storage");
+      }
+    }
+    return null;
+  },
+
   // SIMPAN PEMINJAMAN KE SERVER ITATS
   async savePeminjaman(data: any) {
+    const adminId = data.admin_id || this._getLoggedInAdminId();
+
     try {
-      // Pemetaan data ke format API ITATS
       const payload = {
         dosid_peminjam: data.dosen_id,
         ruangid: data.ruang_id,
-        // Gabungkan tanggal dan waktu menjadi YYYY-MM-DD HH:mm
         waktu_pinjam: `${data.tanggal} ${data.waktu_pinjam}`,
-        dosid_input: "admin-mobile", // ID Admin penginput (Opsional)
+        dosid_input: adminId,
       };
 
       console.log("[API] Saving to ITATS server:", payload);
@@ -231,15 +247,17 @@ export const apiService = {
 
   // PENGEMBALIAN KUNCI KE SERVER ITATS
   async updateStatus(id: string, status?: string, waktu_kembali?: string) {
+    const adminId = this._getLoggedInAdminId();
+
     try {
-      console.log(`[API] Returning key for ID: ${id}`);
+      console.log(`[API] Returning key for ID: ${id} by Admin: ${adminId}`);
 
       const response = await this.request(
         `/peminjaman-ruang/${id}/return-key`,
         {
           method: "POST",
           body: JSON.stringify({
-            dosid_input_kembali: "admin-mobile", // Petugas yang menerima kunci
+            dosid_input_kembali: adminId, // Petugas asli yang menerima kunci
           }),
         },
       );
@@ -261,6 +279,8 @@ export const apiService = {
 
   // UPDATE DATA PEMINJAMAN KE SERVER ITATS
   async updatePeminjaman(id: string, data: any) {
+    const adminId = this._getLoggedInAdminId();
+
     try {
       const payload = {
         dosid_peminjam: data.dosen_id,
@@ -269,7 +289,7 @@ export const apiService = {
         waktu_kembali: data.waktu_kembali
           ? `${data.tanggal} ${data.waktu_kembali}`
           : null,
-        dosid_input_kembali: data.waktu_kembali ? "admin-mobile" : null,
+        dosid_input_kembali: data.waktu_kembali ? adminId : null,
       };
 
       console.log(`[API] Updating record ${id}:`, payload);

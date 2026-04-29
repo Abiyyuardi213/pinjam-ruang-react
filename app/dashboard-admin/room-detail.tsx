@@ -5,6 +5,7 @@ import { useLocalSearchParams, useGlobalSearchParams, useRouter } from 'expo-rou
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
+import QRCode from 'react-native-qrcode-svg';
 
 export default function RoomDetailScreen() {
   const router = useRouter();
@@ -121,6 +122,21 @@ export default function RoomDetailScreen() {
                     <ThemedText style={[styles.infoText, { color: theme.text }]}>
                       {room.ruangket || 'Tidak ada keterangan kamar.'}
                     </ThemedText>
+                  </View>
+
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+                  <View style={styles.qrContainer}>
+                    <ThemedText style={styles.statLabel}>QR CODE RUANGAN</ThemedText>
+                    <View style={styles.qrWrapper}>
+                        <QRCode
+                          value={room.ruangid}
+                          size={160}
+                          color="#000"
+                          backgroundColor="#FFF"
+                        />
+                    </View>
+                    <ThemedText style={styles.qrHint}>Pindai QR ini untuk akses cepat ke ruangan {room.ruangid}</ThemedText>
                   </View>
 
                 </View>
@@ -244,5 +260,28 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     lineHeight: 22,
+  },
+  qrContainer: {
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  qrWrapper: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    marginTop: 10,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  qrHint: {
+    fontSize: 12,
+    color: '#71717A',
+    textAlign: 'center',
+    paddingHorizontal: 20,
   }
 });

@@ -6,6 +6,8 @@ import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
 
+import { AdminHeader } from '@/components/ui/admin-header';
+
 export default function DataRuanganScreen() {
   const router = useRouter();
   const [rooms, setRooms] = React.useState<any[]>([]);
@@ -14,13 +16,12 @@ export default function DataRuanganScreen() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
 
-  // Force Light Theme (Sesuai Permintaan User)
-  const isDark = false;
+  // Force Light Theme
   const theme = {
     bg: '#FAFAFA',
     text: '#09090B',
-    mutedText: '#71717A',
-    border: '#E4E4E7',
+    mutedText: '#64748B',
+    border: '#E2E8F0',
     primary: '#2563EB',
     cardBg: '#FFFFFF',
     success: '#10B981',
@@ -48,9 +49,8 @@ export default function DataRuanganScreen() {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.getRuang(500); // Minta 500 data
+      const response = await apiService.getRuang(500);
       if (response.success && Array.isArray(response.data)) {
-        // Filter hanya ruangan yang statusnya aktif (true)
         const activeRooms = response.data.filter((r: any) => 
           r.ruangstatus === true || r.ruangstatus === 1 || String(r.ruangstatus) === "true"
         ).sort((a: any, b: any) => (a.ruangid || '').localeCompare(b.ruangid || ''));
@@ -71,96 +71,85 @@ export default function DataRuanganScreen() {
     const isActive = item.ruangstatus === true || item.ruangstatus === 1 || String(item.ruangstatus) === "true";
     
     return (
-      <View style={[styles.roomCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconBox, { backgroundColor: isActive ? '#DCFCE7' : '#F1F5F9' }]}>
-            <Ionicons name="business-outline" size={20} color={isActive ? theme.success : theme.mutedText} />
+      <TouchableOpacity 
+        activeOpacity={0.8}
+        onPress={() => router.push({ pathname: '/dashboard-admin/room-detail', params: { id: item.ruangid } })}
+        style={styles.modernRoomCard}
+      >
+        <View style={styles.cardMain}>
+          <View style={[styles.roomIconBox, { backgroundColor: '#EFF6FF' }]}>
+            <Ionicons name="business" size={24} color={theme.primary} />
           </View>
-          <View style={styles.roomInfo}>
-            <ThemedText style={[styles.roomTitle, { color: theme.text }]}>{item.ruangid}</ThemedText>
-            <ThemedText style={[styles.roomSubtitle, { color: theme.mutedText }]} numberOfLines={1}>
+          <View style={styles.roomContent}>
+            <View style={styles.roomHeaderRow}>
+               <ThemedText style={styles.roomCodeText}>{item.ruangid}</ThemedText>
+               <View style={[styles.statusPill, { backgroundColor: '#DCFCE7' }]}>
+                  <ThemedText style={[styles.statusPillText, { color: '#166534' }]}>AKTIF</ThemedText>
+               </View>
+            </View>
+            <ThemedText style={styles.roomNameText} numberOfLines={1}>
               {item.ruangket || 'Deskripsi tidak tersedia'}
             </ThemedText>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: isActive ? '#DCFCE7' : '#FEE2E2' }]}>
-            <ThemedText style={[styles.statusText, { color: isActive ? '#166534' : '#991B1B' }]}>
-              {isActive ? 'Aktif' : 'Non-Aktif'}
-            </ThemedText>
-          </View>
         </View>
 
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-        <View style={styles.cardFooter}>
-          <View style={styles.capInfo}>
-            <Ionicons name="people-outline" size={16} color={theme.mutedText} />
-            <ThemedText style={[styles.capText, { color: theme.mutedText }]}>
-              Kapasitas: {item.ruangkapasitas || 0} Orang
-            </ThemedText>
-          </View>
-          <TouchableOpacity 
-            style={[styles.detailBtn, { backgroundColor: theme.primary }]}
-            onPress={() => router.push({ pathname: '/dashboard-admin/room-detail', params: { id: item.ruangid } })}
-          >
-            <ThemedText style={styles.detailBtnText}>Detail</ThemedText>
-            <Ionicons name="chevron-forward" size={14} color="#FFF" />
-          </TouchableOpacity>
+        <View style={styles.cardFeatures}>
+           <View style={styles.featureItem}>
+              <Ionicons name="people-outline" size={14} color="#64748B" />
+              <ThemedText style={styles.featureText}>{item.ruangkapasitas || 0} Orang</ThemedText>
+           </View>
+           <View style={styles.featureItem}>
+              <Ionicons name="layers-outline" size={14} color="#64748B" />
+              <ThemedText style={styles.featureText}>Lantai {item.ruangid.includes('-') ? item.ruangid.split('-')[1].charAt(0) : '1'}</ThemedText>
+           </View>
+           <View style={styles.featureItem}>
+              <Ionicons name="shield-checkmark-outline" size={14} color="#64748B" />
+              <ThemedText style={styles.featureText}>Lengkap</ThemedText>
+           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       <SafeAreaView style={{ flex: 1 }}>
         
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push('/dashboard-admin')} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </TouchableOpacity>
-          <View>
-            <ThemedText style={[styles.headerTitle, { color: theme.text }]}>Data Master Ruang</ThemedText>
-            <ThemedText style={[styles.headerSub, { color: theme.mutedText }]}>Total {rooms.length} Ruangan Terdaftar</ThemedText>
-          </View>
-          <TouchableOpacity onPress={fetchRooms} style={styles.refreshButton}>
-            <Ionicons name="refresh" size={20} color={theme.primary} />
-          </TouchableOpacity>
-        </View>
+        <AdminHeader 
+          title="Daftar Ruangan"
+          subtitle={`Mengelola ${rooms.length} aset ruangan aktif`}
+          showBack={true}
+          rightIcon="sync"
+          onRightPress={fetchRooms}
+        />
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-            <Ionicons name="search" size={18} color={theme.mutedText} style={styles.searchIcon} />
-            <TextInput
-              placeholder="Cari kode atau nama ruangan..."
-              placeholderTextColor={theme.mutedText}
-              style={[styles.searchInput, { color: theme.text }]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={theme.mutedText} />
-              </TouchableOpacity>
-            )}
-          </View>
+        {/* Modern Search Bar */}
+        <View style={styles.searchSection}>
+           <View style={styles.searchBarWrapper}>
+              <Ionicons name="search-outline" size={20} color="#94A3B8" />
+              <TextInput
+                placeholder="Cari kode atau nama ruangan..."
+                placeholderTextColor="#94A3B8"
+                style={styles.searchTextInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+           </View>
         </View>
 
         {/* List Content */}
         {loading ? (
-          <View style={styles.centerContainer}>
+          <View style={styles.centerBox}>
             <ActivityIndicator size="large" color={theme.primary} />
-            <ThemedText style={[styles.loadingText, { color: theme.mutedText }]}>Menyinkronkan Data...</ThemedText>
+            <ThemedText style={styles.loadingTxt}>Sinkronisasi Data...</ThemedText>
           </View>
         ) : error ? (
-          <View style={styles.centerContainer}>
-            <Ionicons name="cloud-offline-outline" size={48} color={theme.danger} />
-            <ThemedText style={[styles.errorText, { color: theme.danger }]}>{error}</ThemedText>
-            <TouchableOpacity style={[styles.retryBtn, { backgroundColor: theme.primary }]} onPress={fetchRooms}>
-              <ThemedText style={styles.retryBtnText}>Coba Lagi</ThemedText>
+          <View style={styles.centerBox}>
+            <Ionicons name="alert-circle" size={48} color={theme.danger} />
+            <ThemedText style={styles.errorTxt}>{error}</ThemedText>
+            <TouchableOpacity style={styles.retryBtn} onPress={fetchRooms}>
+              <ThemedText style={styles.retryBtnTxt}>Coba Lagi</ThemedText>
             </TouchableOpacity>
           </View>
         ) : (
@@ -171,9 +160,9 @@ export default function DataRuanganScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="search-outline" size={48} color={theme.mutedText} />
-                <ThemedText style={[styles.emptyText, { color: theme.mutedText }]}>Ruangan tidak ditemukan</ThemedText>
+              <View style={styles.emptyBox}>
+                <Ionicons name="search" size={48} color="#E2E8F0" />
+                <ThemedText style={styles.emptyTxt}>Ruangan tidak ditemukan</ThemedText>
               </View>
             }
           />
@@ -186,164 +175,143 @@ export default function DataRuanganScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+  searchSection: {
+    paddingHorizontal: 24,
     paddingVertical: 16,
-    gap: 16,
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 12,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  headerSub: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  refreshButton: {
-    marginLeft: 'auto',
-    padding: 10,
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-    borderRadius: 12,
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  searchInputWrapper: {
+  searchBarWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 120,
-    gap: 12,
-  },
-  roomCard: {
+    backgroundColor: '#FFF',
+    height: 54,
+    paddingHorizontal: 16,
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: '#E2E8F0',
     gap: 12,
   },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+  searchTextInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
+    ...Platform.select({ web: { outlineStyle: 'none' } as any }),
+  },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 180,
+  },
+  modernRoomCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  cardMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  roomIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  roomInfo: {
+  roomContent: {
     flex: 1,
   },
-  roomTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  roomSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  divider: {
-    height: 1,
-    marginVertical: 12,
-  },
-  cardFooter: {
+  roomHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
   },
-  capInfo: {
+  roomCodeText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  roomNameText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  cardFeatures: {
+    flexDirection: 'row',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    gap: 16,
+  },
+  featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  capText: {
+  featureText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#64748B',
   },
-  detailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
-  },
-  detailBtnText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  centerContainer: {
+  centerBox: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
   },
-  loadingText: {
+  loadingTxt: {
     marginTop: 16,
     fontSize: 14,
     fontWeight: '600',
+    color: '#64748B',
   },
-  errorText: {
+  errorTxt: {
     marginTop: 16,
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '600',
+    color: '#EF4444',
     marginBottom: 20,
   },
   retryBtn: {
+    backgroundColor: '#2563EB',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 14,
   },
-  retryBtnText: {
+  retryBtnTxt: {
     color: '#FFF',
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  emptyContainer: {
+  emptyBox: {
     alignItems: 'center',
-    paddingTop: 60,
-    gap: 12,
+    paddingTop: 80,
+    gap: 16,
   },
-  emptyText: {
-    fontSize: 14,
+  emptyTxt: {
+    fontSize: 15,
     fontWeight: '600',
+    color: '#94A3B8',
   }
 });
+
+

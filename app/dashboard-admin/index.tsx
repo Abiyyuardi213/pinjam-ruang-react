@@ -14,11 +14,13 @@ export default function AdminDashboard() {
   const [sidebarVisible, setSidebarVisible] = React.useState(false);
   const [stats, setStats] = React.useState({ ruang: 0, dosen: 0 });
   const [recentJadwal, setRecentJadwal] = React.useState<any[]>([]);
+  const [userData, setUserData] = React.useState<any>(null);
   
   // Gunakan useFocusEffect agar dashboard selalu sinkron dengan data terbaru
   useFocusEffect(
     React.useCallback(() => {
       fetchData();
+      loadUserData();
     }, [])
   );
 
@@ -39,7 +41,19 @@ export default function AdminDashboard() {
 
   React.useEffect(() => {
     fetchData();
+    loadUserData();
   }, []);
+
+  const loadUserData = () => {
+    if (Platform.OS === 'web') {
+      const saved = localStorage.getItem('user_data');
+      if (saved) {
+        try {
+          setUserData(JSON.parse(saved));
+        } catch (e) {}
+      }
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -64,113 +78,132 @@ export default function AdminDashboard() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <StatusBar barStyle="light-content" />
       <AdminSidebar isVisible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
       
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <ThemedText style={[styles.welcomeText, { color: theme.mutedText }]}>Dashboard Pintar</ThemedText>
-              <ThemedText type="title" style={[styles.title, { color: theme.text }]}>Admin Panel</ThemedText>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity 
-                style={styles.menuHandle} 
-                onPress={() => setSidebarVisible(true)}
-              >
-                <Ionicons name="menu" size={28} color={theme.text} />
+          {/* Modern Header Area */}
+          <View style={styles.headerContainer}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity onPress={() => setSidebarVisible(true)} style={styles.iconBtn}>
+                <Ionicons name="grid-outline" size={24} color="#FFF" />
               </TouchableOpacity>
-              <Image source={{ uri: 'https://i.pravatar.cc/150?img=11' }} style={styles.avatar} />
+              <TouchableOpacity onPress={() => router.push('/dashboard-admin/profile')} style={styles.profileBtn}>
+                <View style={styles.avatarContainer}>
+                  <ThemedText style={styles.avatarText}>
+                    {(userData?.name || 'A').substring(0, 1).toUpperCase()}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.headerContent}>
+              <ThemedText style={styles.greetingText}>Selamat Datang,</ThemedText>
+              <ThemedText style={styles.adminName}>{userData?.name || 'Administrator'}</ThemedText>
+              <ThemedText style={styles.subGreeting}>Kelola ketersediaan ruang perkuliahan ITATS hari ini.</ThemedText>
             </View>
           </View>
 
-          {/* Stats Grid */}
-          <View style={styles.statsGrid}>
-            <Card style={[styles.statCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-              <CardHeader style={styles.tightHeader}>
-                <Ionicons name="business-outline" size={20} color={theme.primary} />
-                <ThemedText style={[styles.statValue, { color: theme.text }]}>{stats.ruang}</ThemedText>
-                <ThemedText style={[styles.statLabel, { color: theme.mutedText }]}>Total Ruangan</ThemedText>
-              </CardHeader>
-            </Card>
-            <Card style={[styles.statCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-              <CardHeader style={styles.tightHeader}>
-                <Ionicons name="people-outline" size={20} color={theme.primary} />
-                <ThemedText style={[styles.statValue, { color: theme.text }]}>{stats.dosen}</ThemedText>
-                <ThemedText style={[styles.statLabel, { color: theme.mutedText }]}>Dosen Aktif</ThemedText>
-              </CardHeader>
-            </Card>
+          {/* Stats Section - Bento Style */}
+          <View style={styles.statsWrapper}>
+            <View style={[styles.statBox, { backgroundColor: '#3B82F6' }]}>
+               <View style={styles.statIconCircle}>
+                  <Ionicons name="business" size={20} color="#3B82F6" />
+               </View>
+               <ThemedText style={styles.statBoxValue}>{stats.ruang}</ThemedText>
+               <ThemedText style={styles.statBoxLabel}>Total Ruangan</ThemedText>
+            </View>
+            <View style={[styles.statBox, { backgroundColor: '#8B5CF6' }]}>
+               <View style={styles.statIconCircle}>
+                  <Ionicons name="people" size={20} color="#8B5CF6" />
+               </View>
+               <ThemedText style={styles.statBoxValue}>{stats.dosen}</ThemedText>
+               <ThemedText style={styles.statBoxLabel}>Total Dosen</ThemedText>
+            </View>
           </View>
 
-          {/* Primary Action Button (Blue with White Text) */}
-          <View style={[styles.mainCard, { borderColor: theme.border }]}>
-             <View style={styles.mainCardText}>
-                <ThemedText style={[styles.mainCardTitle, { color: theme.text }]}>Cek Presensi Ruang</ThemedText>
-                <ThemedText style={[styles.mainCardDesc, { color: theme.mutedText }]}>Pindai kode QR dosen untuk memvalidasi penggunaan ruangan secara real-time.</ThemedText>
-             </View>
-             <TouchableOpacity style={[styles.primaryButton, { backgroundColor: theme.primary }]} onPress={() => router.push('/dashboard-admin/scan')}>
-                <Ionicons name="qr-code-outline" size={20} color={theme.primaryForeground} />
-                <ThemedText style={[styles.primaryButtonText, { color: theme.primaryForeground }]}>Scan Validasi</ThemedText>
-             </TouchableOpacity>
+          {/* Quick Actions Grid */}
+          <View style={styles.actionSection}>
+            <ThemedText style={styles.sectionTitle}>Akses Cepat</ThemedText>
+            <View style={styles.actionGrid}>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                style={[styles.actionItem, { backgroundColor: '#FFF' }]} 
+                onPress={() => router.push('/dashboard-admin/scan')}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="qr-code" size={24} color="#2563EB" />
+                </View>
+                <ThemedText style={styles.actionLabel}>Scan QR</ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                style={[styles.actionItem, { backgroundColor: '#FFF' }]} 
+                onPress={() => router.push('/dashboard-admin/rooms')}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: '#F0FDF4' }]}>
+                  <Ionicons name="layers" size={24} color="#166534" />
+                </View>
+                <ThemedText style={styles.actionLabel}>Data Ruang</ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                style={[styles.actionItem, { backgroundColor: '#FFF' }]} 
+                onPress={() => router.push('/dashboard-admin/monitor')}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
+                  <Ionicons name="eye" size={24} color="#C2410C" />
+                </View>
+                <ThemedText style={styles.actionLabel}>Monitoring</ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={styles.secondaryActions}>
-            <TouchableOpacity style={[styles.outlineBtn, { borderColor: theme.border }]} onPress={() => router.push('/dashboard-admin/rooms')}>
-                <Ionicons name="folder-outline" size={18} color={theme.text} />
-                <ThemedText style={[styles.outlineBtnText, { color: theme.text }]}>Data Master</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.outlineBtn, { borderColor: theme.border }]} onPress={() => router.push('/dashboard-admin/monitor')}>
-                <Ionicons name="grid-outline" size={18} color={theme.text} />
-                <ThemedText style={[styles.outlineBtnText, { color: theme.text }]}>Pantau Ruang</ThemedText>
-            </TouchableOpacity>
-          </View>
-
-
-          {/* Activity Section */}
+          {/* Recent Activity */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <ThemedText style={[styles.sectionTitle, { color: theme.text }]}>Aktivitas Peminjaman Terakhir</ThemedText>
-              <TouchableOpacity onPress={fetchData}>
-                <Ionicons name="refresh" size={18} color={theme.mutedText} />
+              <ThemedText style={styles.sectionTitle}>Aktivitas Terbaru</ThemedText>
+              <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}>
+                <Ionicons name="reload" size={16} color={theme.primary} />
+                <ThemedText style={{ color: theme.primary, fontSize: 12, fontWeight: '600' }}>Segarkan</ThemedText>
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.logList, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+            <View style={styles.activityList}>
               {recentJadwal.length === 0 ? (
-                 <View style={{ padding: 32, alignItems: 'center' }}>
-                     <ThemedText style={{ color: theme.mutedText, fontSize: 13 }}>Belum ada aktivitas peminjaman.</ThemedText>
+                 <View style={styles.emptyState}>
+                     <Ionicons name="file-tray-outline" size={48} color="#E4E4E7" />
+                     <ThemedText style={styles.emptyText}>Belum ada aktivitas hari ini.</ThemedText>
                  </View>
               ) : (
                 recentJadwal.map((item, index) => (
-                  <View key={index} style={[styles.logItem, index !== recentJadwal.length - 1 && { borderBottomColor: theme.border, borderBottomWidth: 1 }]}>
-                    <View style={[styles.logIcon, { backgroundColor: item.status === 'Dipinjam' ? '#EFF6FF' : '#DCFCE7' }]}>
+                  <TouchableOpacity key={index} activeOpacity={0.6} style={styles.activityItem}>
+                    <View style={[styles.activityIcon, { backgroundColor: item.status === 'Dipinjam' ? '#EFF6FF' : '#F0FDF4' }]}>
                         <Ionicons 
-                          name={item.status === 'Dipinjam' ? "time-outline" : "checkmark-done-outline"} 
-                          size={18} 
+                          name={item.status === 'Dipinjam' ? "time" : "checkmark-circle"} 
+                          size={20} 
                           color={item.status === 'Dipinjam' ? theme.primary : '#166534'} 
                         />
                     </View>
-                    <View style={styles.logInfo}>
-                        <ThemedText style={[styles.logName, { color: theme.text }]}>{item.dosen_name}</ThemedText>
-                        <ThemedText style={[styles.logRoom, { color: theme.mutedText }]}>{item.ruang_id} • {item.waktu_pinjam}</ThemedText>
+                    <View style={styles.activityContent}>
+                        <ThemedText style={styles.activityName} numberOfLines={1}>{item.dosen_name}</ThemedText>
+                        <ThemedText style={styles.activitySub}>{item.ruang_id} • {item.waktu_pinjam}</ThemedText>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: item.status === 'Dipinjam' ? '#EFF6FF' : '#DCFCE7' }]}>
-                        <ThemedText style={[styles.statusText, { color: item.status === 'Dipinjam' ? theme.primary : '#166534' }]}>
+                    <View style={[styles.statusTag, { backgroundColor: item.status === 'Dipinjam' ? '#DBEAFE' : '#DCFCE7' }]}>
+                        <ThemedText style={[styles.statusTagText, { color: item.status === 'Dipinjam' ? theme.primary : '#166534' }]}>
                           {item.status}
                         </ThemedText>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))
               )}
             </View>
           </View>
 
-          {/* Nav Padding */}
-          <View style={{ height: 100 }} />
-
+          <View style={{ height: 120 }} />
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -182,158 +215,217 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
-    paddingTop: Platform.OS === 'android' ? 40 : 24,
+    paddingBottom: 24,
   },
-  header: {
+  headerContainer: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? 50 : 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  menuHandle: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  welcomeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    letterSpacing: -1,
-  },
-  avatar: {
+  iconBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
+  avatarContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    shadowColor: 'transparent',
-  },
-  tightHeader: {
-    padding: 16,
-    alignItems: 'flex-start',
-  },
-  statValue: {
-    fontSize: 24,
+  avatarText: {
+    color: '#FFF',
     fontWeight: '800',
-    marginTop: 12,
-    marginBottom: 2,
-    letterSpacing: -0.5,
+    fontSize: 18,
   },
-  statLabel: {
-    fontSize: 12,
+  headerContent: {
+    marginTop: 8,
+  },
+  greetingText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
     fontWeight: '500',
   },
-  mainCard: {
-    marginBottom: 16,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 20,
+  adminName: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginVertical: 4,
   },
-  mainCardText: {
-    marginBottom: 16,
-  },
-  mainCardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  mainCardDesc: {
+  subGreeting: {
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 18,
   },
-  primaryButton: {
-    height: 48,
-    borderRadius: 12,
+  statsWrapper: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 24,
+    marginTop: -25,
+  },
+  statBox: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+  },
+  statIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
-    gap: 8,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  primaryButtonText: {
+  statBoxValue: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  statBoxLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
     fontWeight: '600',
-    fontSize: 15,
+    marginTop: 2,
   },
-  secondaryActions: {
+  actionSection: {
+    paddingHorizontal: 24,
+    marginTop: 32,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#09090B',
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  actionGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 32,
   },
-  outlineBtn: {
+  actionItem: {
     flex: 1,
-    height: 44,
-    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     borderWidth: 1,
-    borderRadius: 12,
+    borderColor: '#F1F1F4',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
-  outlineBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+  actionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  section: {},
+  actionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  section: {
+    paddingHorizontal: 24,
+    marginTop: 32,
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  logList: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  logItem: {
+  refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
-  logIcon: {
-    width: 40,
-    height: 40,
+  activityList: {
+    gap: 12,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    backgroundColor: '#FFF',
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F1F1F4',
+  },
+  activityIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
-  logInfo: {
+  activityContent: {
     flex: 1,
   },
-  logName: {
+  activityName: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  logRoom: {
-    fontSize: 12,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 11,
     fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 2,
   },
+  activitySub: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  statusTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+  },
+  emptyText: {
+    marginTop: 12,
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '500',
+  }
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView, Animated, Dimensions, Pressable } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, ScrollView, Animated, Dimensions, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
@@ -17,6 +17,7 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const slideAnim = React.useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
+  const [userData, setUserData] = React.useState<any>(null);
 
   React.useEffect(() => {
     Animated.timing(slideAnim, {
@@ -24,7 +25,23 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
       duration: 300,
       useNativeDriver: true,
     }).start();
+
+    if (isVisible && Platform.OS === 'web') {
+      const saved = localStorage.getItem('user_data');
+      if (saved) {
+        try {
+          setUserData(JSON.parse(saved));
+        } catch (e) {}
+      }
+    }
   }, [isVisible]);
+
+  const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem('user_data');
+      router.replace('/login');
+    }
+  };
 
   return (
     <View 
@@ -52,59 +69,72 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
           }
         ]}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="#94A3B8" />
+        {/* Profile Header Section */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileInfo}>
+            <View style={styles.avatar}>
+               <ThemedText style={styles.avatarText}>
+                 {(userData?.name || 'A').substring(0, 1).toUpperCase()}
+               </ThemedText>
+            </View>
+            <View style={styles.userDetails}>
+               <ThemedText style={styles.userName}>{userData?.name || 'Administrator'}</ThemedText>
+               <ThemedText style={styles.userNip}>{userData?.nip || 'NIP: 4124022001'}</ThemedText>
+            </View>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <Ionicons name="chevron-forward" size={24} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
-          <ThemedText type="subtitle" style={styles.headerTitle}>Menu Tambahan</ThemedText>
+        </View>
+
+        <View style={styles.sectionLabelContainer}>
+           <ThemedText style={styles.sectionLabel}>MENU UTAMA</ThemedText>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <SidebarItem 
-            icon="business-outline" 
-            label="Data Ruangan" 
-            onPress={() => {
-                onClose();
-                router.push('/dashboard-admin/rooms');
-            }}
+            icon="grid-outline" 
+            label="Dashboard" 
+            onPress={() => { onClose(); router.push('/dashboard-admin'); }}
           />
           <SidebarItem 
-            icon="book-outline" 
-            label="Mata Kuliah" 
-            onPress={() => {
-                onClose();
-                router.push('/dashboard-admin/subjects');
-            }}
+            icon="business-outline" 
+            label="Data Ruangan" 
+            onPress={() => { onClose(); router.push('/dashboard-admin/rooms'); }}
           />
           <SidebarItem 
             icon="calendar-outline" 
-            label="Peminjaman Ruang" 
-            onPress={() => {
-                onClose();
-                router.push('/dashboard-admin/peminjaman');
-            }}
+            label="Peminjaman" 
+            onPress={() => { onClose(); router.push('/dashboard-admin/peminjaman'); }}
           />
-          <SidebarItem icon="key-outline" label="Pemantauan Kunci" />
+          <SidebarItem 
+            icon="qr-code-outline" 
+            label="Validasi QR" 
+            onPress={() => { onClose(); router.push('/dashboard-admin/scan'); }}
+          />
           <SidebarItem 
             icon="map-outline" 
             label="Mapping Ruang" 
-            onPress={() => {
-                onClose();
-                router.push('/dashboard-admin/mapping');
-            }}
+            onPress={() => { onClose(); router.push('/dashboard-admin/mapping'); }}
           />
 
-          <SidebarItem icon="people-outline" label="Dosen Pengganti" />
-          <SidebarItem icon="document-text-outline" label="Ijin Kuliah" />
-          
           <View style={styles.divider} />
           
-          <SidebarItem icon="settings-outline" label="Pengaturan Sistem" />
-          <SidebarItem icon="help-circle-outline" label="Pusat Bantuan" />
+          <View style={styles.sectionLabelContainer}>
+             <ThemedText style={styles.sectionLabel}>LAINNYA</ThemedText>
+          </View>
+
+          <SidebarItem icon="settings-outline" label="Pengaturan" />
+          <SidebarItem icon="help-circle-outline" label="Bantuan" />
         </ScrollView>
 
+        {/* Logout Section */}
         <View style={styles.footer}>
-          <ThemedText style={styles.versionText}>v1.0.2 Beta</ThemedText>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+             <Ionicons name="log-out-outline" size={20} color="#FCA5A5" />
+             <ThemedText style={styles.logoutText}>Logout Sesi</ThemedText>
+          </TouchableOpacity>
+          <ThemedText style={styles.versionText}>ITATS Mobile v1.0.2</ThemedText>
         </View>
       </Animated.View>
     </View>
@@ -113,9 +143,9 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
 
 function SidebarItem({ icon, label, onPress }: { icon: any, label: string, onPress?: () => void }) {
   return (
-    <TouchableOpacity style={styles.item} onPress={onPress}>
+    <TouchableOpacity activeOpacity={0.6} style={styles.item} onPress={onPress}>
       <View style={styles.iconContainer}>
-        <Ionicons name={icon} size={22} color="#1A4FA0" />
+        <Ionicons name={icon} size={20} color="#94A3B8" />
       </View>
       <ThemedText style={styles.itemLabel}>{label}</ThemedText>
     </TouchableOpacity>
@@ -129,7 +159,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   container: {
     position: 'absolute',
@@ -137,65 +167,117 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: SIDEBAR_WIDTH,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A', // Slate 900
     shadowColor: '#000',
-    shadowOffset: { width: -5, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOffset: { width: -10, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
   },
-  header: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
+  profileSection: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 30,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 32,
   },
-  closeButton: {
-    padding: 4,
+  profileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1A4FA0',
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  avatarText: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  userDetails: {
+    gap: 2,
+  },
+  userName: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  userNip: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+  },
+  closeBtn: {
+    padding: 8,
+  },
+  sectionLabelContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  sectionLabel: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   scrollContent: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     marginBottom: 4,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    backgroundColor: '#1A4FA010',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   itemLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 20,
-    marginHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginVertical: 16,
+    marginHorizontal: 12,
   },
   footer: {
-    paddingHorizontal: 20,
-    marginTop: 'auto',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  logoutText: {
+    color: '#FCA5A5',
+    fontSize: 14,
+    fontWeight: '700',
   },
   versionText: {
-    fontSize: 12,
-    opacity: 0.3,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.2)',
+    marginTop: 8,
+    fontWeight: '600',
   },
 });

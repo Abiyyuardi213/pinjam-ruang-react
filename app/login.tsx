@@ -38,37 +38,31 @@ export default function LoginScreen() {
       return;
     }
 
-    // LOGIN STATIS UNTUK TESTING (Sesuai permintaan)
-    if (nip === "CSR092" && password === "2001-05-17") {
-      setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        Toast.show({
-          type: "success",
-          text1: "Login Berhasil",
-          text2: "Selamat datang kembali, Admin!",
-        });
-        router.replace("/dashboard-admin");
-      }, 800);
-      return;
-    }
-
     setIsLoading(true);
     try {
+      console.log(`[LOGIN] Attempting login for: ${nip}`);
       const response = await apiService.login(nip, password);
+      console.log("[LOGIN] Response:", response);
 
-      if (response.success || response.token || response.data) {
-        const user = response.user || response.data?.user;
+      // Check success based on common ITATS API patterns
+      if (response.success || response.token || response.data || response.name) {
+        const user = response.user || response.data?.user || response;
         const role =
           user?.role || response.role || (nip.length > 10 ? "dosen" : "admin");
 
         Toast.show({
           type: "success",
           text1: "Login Berhasil",
-          text2: `Selamat datang, ${user?.name || "User"}!`,
+          text2: `Selamat datang, ${user?.name || nip}!`,
         });
 
-        if (role === "admin") {
+        // Simpan token dan data user jika ada (untuk web)
+        if (Platform.OS === "web") {
+          if (response.token) localStorage.setItem("auth_token", response.token);
+          localStorage.setItem("user_data", JSON.stringify(user));
+        }
+
+        if (role === "admin" || nip.startsWith("CSR")) {
           router.replace("/dashboard-admin");
         } else {
           router.replace("/dosen_dashboard");
@@ -77,32 +71,12 @@ export default function LoginScreen() {
         Toast.show({
           type: "error",
           text1: "Login Gagal",
-          text2: response.message || "NIP atau Password salah",
+          text2: response.message || "Username atau Password salah",
         });
       }
     } catch (error) {
       console.error("Login Error details:", error);
 
-      // Bypass untuk testing jika server mati
-      if (nip === "admin" && password === "admin") {
-        Toast.show({
-          type: "success",
-          text1: "Login Bypass (Dev)",
-          text2: "Masuk sebagai Admin",
-        });
-        router.replace("/dashboard-admin");
-        return;
-      } else if (nip === "dosen" && password === "dosen") {
-        Toast.show({
-          type: "success",
-          text1: "Login Bypass (Dev)",
-          text2: "Masuk sebagai Dosen",
-        });
-        router.replace("/dosen_dashboard");
-        return;
-      }
-
-      const errorMessage = (error as Error).message;
       Toast.show({
         type: "error",
         text1: "Koneksi Gagal",

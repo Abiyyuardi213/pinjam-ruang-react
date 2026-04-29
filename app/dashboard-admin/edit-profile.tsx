@@ -14,9 +14,23 @@ export default function EditProfileScreen() {
   
   // Form State
   const [name, setName] = React.useState('Administrator');
-  const [email, setEmail] = React.useState('admin@kampus.ac.id');
+  const [email, setEmail] = React.useState('admin@itats.ac.id');
   const [phone, setPhone] = React.useState('081234567890');
   const [nip, setNip] = React.useState('198701012015011001');
+
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      const saved = localStorage.getItem('user_data');
+      if (saved) {
+        try {
+          const user = JSON.parse(saved);
+          setName(user.name || 'Administrator');
+          setEmail(user.email || 'admin@itats.ac.id');
+          setNip(user.nip || '');
+        } catch (e) {}
+      }
+    }
+  }, []);
 
   // Force Light Theme
   const theme = {
@@ -50,6 +64,14 @@ export default function EditProfileScreen() {
     // Simulasi save
     setTimeout(() => {
       setLoading(false);
+
+      if (Platform.OS === 'web') {
+        const saved = localStorage.getItem('user_data');
+        let user = saved ? JSON.parse(saved) : {};
+        user = { ...user, name, email, nip };
+        localStorage.setItem('user_data', JSON.stringify(user));
+      }
+
       Toast.show({
         type: 'success',
         text1: 'Profil Diperbarui',

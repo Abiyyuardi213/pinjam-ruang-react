@@ -6,6 +6,8 @@ import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
 import { useRouter } from 'expo-router';
 
+import { AdminHeader } from '@/components/ui/admin-header';
+
 export default function AdminMonitor() {
   const colorScheme = useColorScheme();
   const router = useRouter();
@@ -119,52 +121,74 @@ export default function AdminMonitor() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <StatusBar barStyle="light-content" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                <Ionicons name="arrow-back" size={24} color={theme.text} />
-            </TouchableOpacity>
-            <ThemedText style={[styles.headerTitle, { color: theme.text }]}>Pantau Ruangan</ThemedText>
-            <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}>
-                <Ionicons name="refresh" size={22} color={theme.text} />
-            </TouchableOpacity>
-        </View>
+        
+        <AdminHeader 
+          title="Monitor Gedung"
+          subtitle="Pantauan Real-time Penggunaan Ruang ITATS"
+          showBack={true}
+          rightIcon="sync"
+          onRightPress={fetchData}
+        />
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <ThemedText style={[styles.subtitle, { color: theme.mutedText }]}>Daftar ruangan yang sedang digunakan untuk perkuliahan sesuai jadwal hari ini.</ThemedText>
+
+        <ScrollView 
+          contentContainerStyle={styles.mainScrollContent} 
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Summary Section - Natural Flow */}
+          <View style={styles.summarySection}>
+             <View style={[styles.sumCard, { backgroundColor: '#EFF6FF', borderColor: '#DBEAFE' }]}>
+                <Ionicons name="business" size={24} color="#2563EB" />
+                <View>
+                  <ThemedText style={[styles.sumVal, { color: '#1E40AF' }]}>{activeItems.length}</ThemedText>
+                  <ThemedText style={[styles.sumLabel, { color: '#60A5FA' }]}>TERPAKAI</ThemedText>
+                </View>
+             </View>
+             <View style={[styles.sumCard, { backgroundColor: '#F0FDF4', borderColor: '#DCFCE7' }]}>
+                <Ionicons name="checkmark-circle" size={24} color="#166534" />
+                <View>
+                  <ThemedText style={[styles.sumVal, { color: '#14532D' }]}>{rooms.length - activeItems.length}</ThemedText>
+                  <ThemedText style={[styles.sumLabel, { color: '#4ADE80' }]}>TERSEDIA</ThemedText>
+                </View>
+             </View>
+          </View>
 
           {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <View style={[styles.searchBar, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-                <Ionicons name="search" size={18} color={theme.mutedText} />
+          <View style={styles.searchWrapper}>
+            <View style={styles.modernSearchBar}>
+                <Ionicons name="search-outline" size={20} color="#94A3B8" />
                 <TextInput 
-                    placeholder="Cari ruang, dosen, atau mata kuliah..."
-                    placeholderTextColor={theme.mutedText}
+                    placeholder="Cari ruangan atau dosen..."
+                    placeholderTextColor="#94A3B8"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    style={[styles.searchInput, { color: theme.text }]}
+                    style={styles.modernSearchInput}
                 />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Ionicons name="close-circle" size={18} color={theme.mutedText} />
-                    </TouchableOpacity>
-                )}
             </View>
           </View>
 
-          <View style={styles.roomGrid}>
+          {/* Content List */}
+          <View style={styles.roomListWrapper}>
+            <View style={styles.listHeading}>
+               <ThemedText style={styles.listTitle}>Status Penggunaan</ThemedText>
+               <View style={styles.activePill}>
+                  <ThemedText style={styles.activePillText}>{activeItems.length} Ruang Aktif</ThemedText>
+               </View>
+            </View>
+
             {isLoading ? (
-                <View style={{ padding: 40, alignItems: 'center' }}>
-                    <ActivityIndicator color={theme.primary} />
-                    <ThemedText style={{ color: theme.mutedText, marginTop: 12 }}>Menganalisis penggunaan ruangan...</ThemedText>
+                <View style={styles.centerBox}>
+                    <ActivityIndicator color={theme.primary} size="large" />
+                    <ThemedText style={styles.statusText}>Memuat Data...</ThemedText>
                 </View>
             ) : error ? (
-                <View style={{ padding: 40, alignItems: 'center' }}>
-                    <Ionicons name="alert-circle-outline" size={48} color={theme.danger} style={{ marginBottom: 16 }} />
-                    <ThemedText style={{ color: theme.danger, textAlign: 'center', marginBottom: 16 }}>{error}</ThemedText>
-                    <TouchableOpacity onPress={fetchData} style={[styles.refreshBtn, { backgroundColor: theme.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }]}>
-                        <ThemedText style={{ color: '#FFF', fontWeight: 'bold' }}>Coba Lagi</ThemedText>
+                <View style={styles.centerBox}>
+                    <Ionicons name="alert-circle" size={48} color="#EF4444" />
+                    <ThemedText style={styles.errorMsg}>{error}</ThemedText>
+                    <TouchableOpacity onPress={fetchData} style={styles.actionBtn}>
+                        <ThemedText style={styles.actionBtnText}>Coba Lagi</ThemedText>
                     </TouchableOpacity>
                 </View>
             ) : (activeItems.filter(item => {
@@ -183,42 +207,52 @@ export default function AdminMonitor() {
                   })).map((item, index) => {
                     const { room, type, dosen, keterangan, time, isBorrowed } = item;
                     return (
-                        <View key={index} style={[styles.roomItem, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-                            <View style={[styles.roomIconBox, { backgroundColor: isBorrowed ? '#DCFCE7' : '#FEF2F2' }]}>
-                                <Ionicons name={isBorrowed ? "key" : "time-outline"} size={20} color={isBorrowed ? '#166534' : theme.danger} />
-                            </View>
-                            <View style={styles.roomInfo}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <ThemedText style={[styles.roomId, { color: theme.text }]}>{room.ruangid || room.nama_ruang}</ThemedText>
-                                    <View style={[styles.typeBadge, { backgroundColor: type === 'Jadwal Kuliah' ? '#DBEAFE' : '#FEF3C7' }]}>
-                                        <ThemedText style={{ fontSize: 9, fontWeight: '700', color: type === 'Jadwal Kuliah' ? '#1E40AF' : '#92400E' }}>{type.toUpperCase()}</ThemedText>
+                        <View key={index} style={styles.modernRoomCard}>
+                            <View style={styles.cardHeader}>
+                                <View style={styles.roomBox}>
+                                    <ThemedText style={styles.roomText}>{room.ruangid || room.nama_ruang}</ThemedText>
+                                    <View style={styles.typeTag}>
+                                      <ThemedText style={styles.typeTagText}>{type}</ThemedText>
                                     </View>
                                 </View>
-                                <ThemedText style={[styles.roomSub, { color: theme.text, fontWeight: '600' }]}>{dosen}</ThemedText>
-                                <ThemedText style={[styles.roomSub, { color: theme.mutedText }]} numberOfLines={1}>{keterangan}</ThemedText>
-                            </View>
-                            <View style={styles.timeBadge}>
-                                <ThemedText style={[styles.timeText, { color: theme.danger, marginBottom: 4 }]}>{time}</ThemedText>
-                                <View style={[styles.borrowBadge, { backgroundColor: isBorrowed ? '#DCFCE7' : '#FEE2E2' }]}>
-                                    <ThemedText style={[styles.borrowText, { color: isBorrowed ? '#166534' : '#991B1B' }]}>
-                                        {isBorrowed ? 'Sudah Pinjam' : 'Belum Pinjam'}
-                                    </ThemedText>
+                                <View style={styles.timeTag}>
+                                    <Ionicons name="time-outline" size={12} color="#EF4444" />
+                                    <ThemedText style={styles.timeTagText}>{time}</ThemedText>
                                 </View>
+                            </View>
+                            
+                            <View style={styles.cardBody}>
+                                <ThemedText style={styles.dosenTxt}>{dosen}</ThemedText>
+                                <ThemedText style={styles.subjectTxt} numberOfLines={1}>{keterangan}</ThemedText>
+                            </View>
+
+                            <View style={[styles.cardFooter, { backgroundColor: isBorrowed ? '#F0FDF4' : '#FFF7ED' }]}>
+                                <Ionicons 
+                                  name={isBorrowed ? "checkmark-circle" : "alert-circle"} 
+                                  size={16} 
+                                  color={isBorrowed ? '#166534' : '#C2410C'} 
+                                />
+                                <ThemedText style={[styles.statusNote, { color: isBorrowed ? '#166534' : '#C2410C' }]}>
+                                  {isBorrowed ? 'Kunci sudah dibawa dosen' : 'Dosen belum mengambil kunci'}
+                                </ThemedText>
                             </View>
                         </View>
                     );
                 })
             ) : (
-                <View style={{ padding: 60, alignItems: 'center' }}>
-                    <Ionicons name="checkmark-circle-outline" size={64} color={theme.success || '#10B981'} />
-                    <ThemedText style={{ color: theme.mutedText, textAlign: 'center', marginTop: 16, fontSize: 16, fontWeight: '600' }}>Semua ruangan tersedia.</ThemedText>
-                    <ThemedText style={{ color: theme.mutedText, textAlign: 'center', marginTop: 4, fontSize: 12 }}>Tidak ada kegiatan perkuliahan atau peminjaman aktif saat ini.</ThemedText>
+                <View style={styles.emptyContainer}>
+                    <View style={styles.emptyCircle}>
+                      <Ionicons name="checkmark-done" size={40} color="#22C55E" />
+                    </View>
+                    <ThemedText style={styles.emptyTitle}>Semua Ruangan Tersedia</ThemedText>
+                    <ThemedText style={styles.emptySub}>Tidak ada aktivitas perkuliahan saat ini.</ThemedText>
                 </View>
             )}
           </View>
-          <View style={{ height: 100 }} />
+          
+          {/* Very Large Padding for Floating Navbar */}
+          <View style={{ height: 180 }} />
         </ScrollView>
-
       </SafeAreaView>
     </View>
   );
@@ -226,107 +260,199 @@ export default function AdminMonitor() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
+  mainScrollContent: {
+    paddingTop: 24,
+  },
+  summarySection: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 24,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 16,
-  },
-  backBtn: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  refreshBtn: {
-    padding: 8,
-    marginRight: -8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  scrollContent: { padding: 24 },
-  subtitle: { 
-    fontSize: 14, 
-    lineHeight: 20,
     marginBottom: 24,
   },
-  searchContainer: {
-    marginBottom: 24,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 10,
-  },
-  searchInput: {
+  sumCard: {
     flex: 1,
-    fontSize: 14,
-    height: '100%',
-    ...Platform.select({ web: { outlineStyle: 'none' } as any }),
-  },
-  roomGrid: { gap: 12 },
-  roomItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
+    gap: 12,
   },
-  roomIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    justifyContent: 'center',
+  sumVal: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  sumLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  searchWrapper: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
+  },
+  modernSearchBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 10,
   },
-  roomInfo: {
+  modernSearchInput: {
     flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    ...Platform.select({ web: { outlineStyle: 'none' } as any }),
   },
-  roomId: {
+  roomListWrapper: {
+    paddingHorizontal: 24,
+  },
+  listHeading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  listTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  roomSub: {
-    fontSize: 13,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
+  activePill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8,
   },
-  statusText: {
+  activePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  modernRoomCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    padding: 16,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  roomBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  roomText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  typeTag: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  typeTagText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  timeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timeTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  cardBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  dosenTxt: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  subjectTxt: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  cardFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusNote: {
     fontSize: 11,
     fontWeight: '600',
   },
-  typeBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  centerBox: {
+    padding: 60,
+    alignItems: 'center',
   },
-  timeBadge: {
-    justifyContent: 'center',
-    alignItems: 'flex-end',
+  statusText: {
+    marginTop: 12,
+    color: '#64748B',
+    fontWeight: '600',
   },
-  timeText: {
-    fontSize: 12,
-    fontWeight: '700',
+  errorMsg: {
+    color: '#EF4444',
+    textAlign: 'center',
+    marginVertical: 16,
+    fontWeight: '600',
   },
-  borrowBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  actionBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
-  borrowText: {
-    fontSize: 9,
+  actionBtnText: {
+    color: '#FFF',
     fontWeight: '800',
-    textTransform: 'uppercase',
   },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 6,
+    textAlign: 'center',
+  }
 });
