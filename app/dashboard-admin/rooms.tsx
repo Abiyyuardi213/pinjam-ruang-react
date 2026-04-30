@@ -113,8 +113,8 @@ export default function DataRuanganScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle="light-content" />
-      <SafeAreaView style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      
         
         <AdminHeader 
           title="Daftar Ruangan"
@@ -166,9 +166,7 @@ export default function DataRuanganScreen() {
               </View>
             }
           />
-        )}
-
-      </SafeAreaView>
+      )}
     </View>
   );
 }

@@ -1,23 +1,28 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
+import { storage } from '@/utils/storage';
+import { StyleSheet, View, TouchableOpacity, ScrollView, Platform, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AdminHeader } from '@/components/ui/admin-header';
+import { AdminSidebar } from '@/components/ui/admin-sidebar';
+import Toast from 'react-native-toast-message';
 
 export default function AdminProfile() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const [userData, setUserData] = React.useState<any>(null);
+  const [sidebarVisible, setSidebarVisible] = React.useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = React.useState(false);
   
   // Force Light Theme
   const isDark = false;
 
   React.useEffect(() => {
-    if (Platform.OS === 'web') {
-      const savedUser = localStorage.getItem('user_data');
+    const loadUser = async () => {
+      const savedUser = await storage.getItem('user_data');
       if (savedUser) {
         try {
           setUserData(JSON.parse(savedUser));
@@ -25,14 +30,22 @@ export default function AdminProfile() {
           console.error("Failed to parse user data", e);
         }
       }
-    }
+    };
+    loadUser();
   }, []);
 
-  const handleLogout = () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('user_data');
-      localStorage.removeItem('auth_token');
-    }
+  const handleLogout = async () => {
+    setLogoutModalVisible(false);
+    await storage.removeItem('user_data');
+    await storage.removeItem('auth_token');
+    
+    Toast.show({
+      type: 'success',
+      text1: 'Logout Berhasil',
+      text2: 'Sesi Anda telah berakhir dengan aman.',
+      visibilityTime: 3000,
+    });
+
     router.replace('/login');
   };
 
@@ -50,13 +63,15 @@ export default function AdminProfile() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle="light-content" />
-      <SafeAreaView style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <AdminSidebar isVisible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
         
         <AdminHeader 
           title="Profil Saya"
           subtitle="Kelola informasi akun dan preferensi"
-          showBack={true}
+          showBack={false}
+          showMenu={true}
+          onMenuPress={() => setSidebarVisible(true)}
         />
 
         <ScrollView 
@@ -68,7 +83,7 @@ export default function AdminProfile() {
             <View style={styles.avatarWrapper}>
               <View style={[styles.avatarLarge, { backgroundColor: theme.primary }]}>
                 <ThemedText style={styles.avatarText}>
-                  {(userData?.name || 'AD').substring(0, 2).toUpperCase()}
+                  {(userData?.fullname || userData?.name || 'AD').substring(0, 2).toUpperCase()}
                 </ThemedText>
               </View>
               <TouchableOpacity style={styles.editAvatarBtn}>
@@ -76,8 +91,11 @@ export default function AdminProfile() {
               </TouchableOpacity>
             </View>
             <View style={styles.heroInfo}>
-              <ThemedText style={styles.userName}>{userData?.name || 'Administrator ITATS'}</ThemedText>
-              <ThemedText style={styles.userNip}>{userData?.nip || 'NIP: 4124022001'}</ThemedText>
+              <ThemedText style={styles.userName}>{userData?.fullname || userData?.name || 'Administrator ITATS'}</ThemedText>
+              <ThemedText style={styles.userNip}>{userData?.name ? `NIP: ${userData.name}` : 'NIP: -'}</ThemedText>
+              <View style={styles.roleTag}>
+                <ThemedText style={styles.roleText}>{userData?.roles?.[0] || 'Petugas'}</ThemedText>
+              </View>
             </View>
           </View>
 
@@ -140,7 +158,7 @@ export default function AdminProfile() {
             <TouchableOpacity 
               activeOpacity={0.7}
               style={styles.logoutBtn}
-              onPress={handleLogout}
+              onPress={() => setLogoutModalVisible(true)}
             >
               <View style={styles.logoutIconBox}>
                 <Ionicons name="log-out" size={20} color={theme.danger} />
@@ -156,8 +174,54 @@ export default function AdminProfile() {
           {/* Safe Bottom Padding */}
           <View style={{ height: 180 }} />
         </ScrollView>
-      </SafeAreaView>
+
+        {/* Logout Confirmation Modal */}
+        <LogoutModal 
+          visible={logoutModalVisible}
+          onClose={() => setLogoutModalVisible(false)}
+          onConfirm={handleLogout}
+        />
     </View>
+  );
+}
+
+function LogoutModal({ visible, onClose, onConfirm }: any) {
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalIconBox}>
+            <Ionicons name="log-out" size={32} color="#EF4444" />
+          </View>
+          
+          <ThemedText style={styles.modalTitle}>Keluar Sesi?</ThemedText>
+          <ThemedText style={styles.modalDesc}>
+            Anda harus memasukkan kembali NIP dan kata sandi untuk masuk ke aplikasi.
+          </ThemedText>
+          
+          <View style={styles.modalActionRow}>
+            <TouchableOpacity 
+              style={[styles.modalBtn, styles.cancelBtn]} 
+              onPress={onClose}
+            >
+              <ThemedText style={styles.cancelBtnText}>Batal</ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalBtn, styles.confirmBtn]} 
+              onPress={onConfirm}
+            >
+              <ThemedText style={styles.confirmBtnText}>Ya, Keluar</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -233,10 +297,24 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5 
   },
   userNip: { 
-    fontSize: 13, 
+    fontSize: 14, 
     color: '#64748B',
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 4 
+  },
+  roleTag: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  roleText: {
+    color: '#2563EB',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase'
   },
   menuGroup: { 
     paddingHorizontal: 24,
@@ -312,5 +390,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
     marginTop: 2,
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: '#FFF',
+    borderRadius: 32,
+    padding: 32,
+    alignItems: 'center',
+    elevation: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+  },
+  modalIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 28,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalDesc: {
+    fontSize: 15,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  cancelBtn: {
+    backgroundColor: '#F1F5F9',
+  },
+  confirmBtn: {
+    backgroundColor: '#EF4444',
+  },
+  cancelBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  confirmBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFF',
+  },
 });

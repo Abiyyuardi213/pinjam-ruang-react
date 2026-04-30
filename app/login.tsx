@@ -1,4 +1,5 @@
 import { ThemedText } from "@/components/themed-text";
+import { storage } from "@/utils/storage";
 import Toast from "react-native-toast-message";
 
 import { apiService } from "@/services/api";
@@ -18,15 +19,40 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [nip, setNip] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Check if user is already logged in
+  React.useEffect(() => {
+    const checkAuth = async () => {
+      const token = await storage.getItem("auth_token");
+      const userData = await storage.getItem("user_data");
+      
+      if (token && userData) {
+        try {
+          const user = JSON.parse(userData);
+          // Redirect based on role/username pattern
+          if (user.name?.startsWith("CSR") || user.role === "admin") {
+            router.replace("/dashboard-admin");
+          } else {
+            router.replace("/dashboard-dosen");
+          }
+        } catch (e) {
+          console.error("Error parsing stored user data", e);
+        }
+      }
+    };
+    checkAuth();
+  }, []);
 
   const handleLogin = async () => {
     if (!nip || !password) {
@@ -56,16 +82,14 @@ export default function LoginScreen() {
           text2: `Selamat datang, ${user?.name || nip}!`,
         });
 
-        // Simpan token dan data user jika ada (untuk web)
-        if (Platform.OS === "web") {
-          if (response.token) localStorage.setItem("auth_token", response.token);
-          localStorage.setItem("user_data", JSON.stringify(user));
-        }
+        // Simpan token dan data user secara persistent
+        if (response.token) await storage.setItem("auth_token", response.token);
+        await storage.setItem("user_data", JSON.stringify(user));
 
         if (role === "admin" || nip.startsWith("CSR")) {
           router.replace("/dashboard-admin");
         } else {
-          router.replace("/dosen_dashboard");
+          router.replace("/dashboard-dosen");
         }
       } else {
         Toast.show({
@@ -100,7 +124,10 @@ export default function LoginScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) }
+          ]}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
@@ -208,11 +235,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 30,
-    paddingVertical: 40,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: height < 700 ? 20 : 40,
+    marginTop: height < 700 ? 10 : 20,
   },
   iconCircle: {
     width: 100,

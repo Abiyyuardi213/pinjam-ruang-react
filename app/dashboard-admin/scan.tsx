@@ -164,10 +164,9 @@ export default function AdminScan() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <AdminSidebar isVisible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
-      <SafeAreaView style={{ flex: 1 }}>
-        
+      
         <AdminHeader 
           title="Validasi QR"
           subtitle="Input Transaksi Kunci ITATS"
@@ -291,7 +290,6 @@ export default function AdminScan() {
           {/* Extreme Bottom Padding for Floating Navbar */}
           <View style={{ height: 180 }} />
         </ScrollView>
-      </SafeAreaView>
       <Toast />
     </View>
   );

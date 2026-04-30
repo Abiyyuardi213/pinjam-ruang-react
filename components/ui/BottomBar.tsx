@@ -39,6 +39,8 @@ export function BottomBar({ state, descriptors, navigation }: BottomTabBarProps)
             'scan': { active: 'qr-code', inactive: 'qr-code-outline' },
             'monitor': { active: 'grid', inactive: 'grid-outline' },
             'profile': { active: 'person', inactive: 'person-outline' },
+            'jadwal': { active: 'calendar', inactive: 'calendar-outline' },
+            'history': { active: 'time', inactive: 'time-outline' },
         };
 
         if (!iconMapping[route.name]) {

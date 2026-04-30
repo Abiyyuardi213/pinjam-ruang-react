@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { useRouter } from 'expo-router';
@@ -26,9 +27,10 @@ export function AdminHeader({
   onMenuPress
 }: AdminHeaderProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
       <View style={styles.headerRow}>
         <View style={styles.leftContainer}>
           {showBack && (
@@ -66,7 +68,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#1E293B', // Slate 900
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 50 : 20,
     paddingBottom: 24,
   },
   headerRow: {
