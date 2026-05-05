@@ -1,37 +1,25 @@
 import { Platform } from "react-native";
 import { BaseService } from "./BaseService";
+import { storage } from "@/utils/storage";
 
 export class BorrowingService extends BaseService {
   private static _localBorrowings: any[] = [];
 
-  private static _initStorage() {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      try {
-        const saved = window.localStorage.getItem("local_borrowings");
-        if (saved) this._localBorrowings = JSON.parse(saved);
-      } catch (e) {
-        console.warn("[API] Failed to load from localStorage");
+  private static async _getLoggedInAdminId() {
+    try {
+      const savedUser = await storage.getItem("user_data");
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        // Prioritaskan dosid (untuk admin), nip, atau name
+        return user.dosid || user.nip || user.name || user.id;
       }
-    }
-  }
-
-  private static _getLoggedInAdminId() {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      try {
-        const savedUser = window.localStorage.getItem("user_data");
-        if (savedUser) {
-          const user = JSON.parse(savedUser);
-          return user.nip || user.name;
-        }
-      } catch (e) {
-        console.warn("[API] Gagal mengambil user_data dari storage");
-      }
+    } catch (e) {
+      console.warn("[API] Gagal mengambil user_data dari storage");
     }
     return null;
   }
 
   static async getPeminjaman(tanggal?: string) {
-    this._initStorage();
     try {
       const queryParam = tanggal ? `tanggal_pinjam=${tanggal}` : "";
       const list = await this.fetchAll("/peminjaman-ruang", queryParam);
@@ -56,7 +44,7 @@ export class BorrowingService extends BaseService {
   }
 
   static async savePeminjaman(data: any) {
-    const adminId = data.admin_id || this._getLoggedInAdminId();
+    const adminId = data.admin_id || await this._getLoggedInAdminId();
     try {
       const payload = {
         dosid_peminjam: data.dosen_id,
@@ -80,7 +68,7 @@ export class BorrowingService extends BaseService {
   }
 
   static async updateStatus(id: string, status?: string, waktu_kembali?: string) {
-    const adminId = this._getLoggedInAdminId();
+    const adminId = await this._getLoggedInAdminId();
     try {
       const response = await this.request(`/peminjaman-ruang/${id}/return-key`, {
         method: "POST",
@@ -97,7 +85,7 @@ export class BorrowingService extends BaseService {
   }
 
   static async updatePeminjaman(id: string, data: any) {
-    const adminId = this._getLoggedInAdminId();
+    const adminId = await this._getLoggedInAdminId();
     try {
       const payload = {
         dosid_peminjam: data.dosen_id,

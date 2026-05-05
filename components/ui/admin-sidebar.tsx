@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { storage } from '@/utils/storage';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.75;
@@ -26,21 +28,32 @@ export function AdminSidebar({ isVisible, onClose }: SidebarProps) {
       useNativeDriver: true,
     }).start();
 
-    if (isVisible && Platform.OS === 'web') {
-      const saved = localStorage.getItem('user_data');
-      if (saved) {
-        try {
-          setUserData(JSON.parse(saved));
-        } catch (e) {}
-      }
+    if (isVisible) {
+      const loadUser = async () => {
+        const saved = await storage.getItem('user_data');
+        if (saved) {
+          try {
+            setUserData(JSON.parse(saved));
+          } catch (e) {}
+        }
+      };
+      loadUser();
     }
   }, [isVisible]);
 
-  const handleLogout = () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('user_data');
-      router.replace('/login');
-    }
+  const handleLogout = async () => {
+    await storage.removeItem('user_data');
+    await storage.removeItem('auth_token');
+    onClose();
+    
+    Toast.show({
+      type: 'success',
+      text1: 'Logout Berhasil',
+      text2: 'Sesi Anda telah berakhir dengan aman.',
+      visibilityTime: 3000,
+    });
+
+    router.replace('/login');
   };
 
   return (

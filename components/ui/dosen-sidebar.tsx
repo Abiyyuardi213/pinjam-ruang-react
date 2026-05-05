@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { storage } from '@/utils/storage';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.75;
@@ -43,7 +44,16 @@ export function DosenSidebar({ isVisible, onClose }: SidebarProps) {
 
   const handleLogout = async () => {
     await storage.removeItem('user_data');
+    await storage.removeItem('auth_token');
     onClose();
+
+    Toast.show({
+      type: 'success',
+      text1: 'Logout Berhasil',
+      text2: 'Sesi Anda telah berakhir dengan aman.',
+      visibilityTime: 3000,
+    });
+
     router.replace('/login');
   };
 

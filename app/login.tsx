@@ -41,7 +41,7 @@ export default function LoginScreen() {
         try {
           const user = JSON.parse(userData);
           // Redirect based on role/username pattern
-          if (user.name?.startsWith("CSR") || user.role === "admin") {
+          if (user.name?.startsWith("CSR") || user.role === "admin" || user.nip === "522002240020") {
             router.replace("/dashboard-admin");
           } else {
             router.replace("/dashboard-dosen");
@@ -74,7 +74,7 @@ export default function LoginScreen() {
       if (response.success || response.token || response.data || response.name) {
         const user = response.user || response.data?.user || response;
         const role =
-          user?.role || response.role || (nip.length > 10 ? "dosen" : "admin");
+          user?.role || response.role || (nip === "522002240020" ? "admin" : (nip.length > 10 ? "dosen" : "admin"));
 
         Toast.show({
           type: "success",
@@ -86,7 +86,7 @@ export default function LoginScreen() {
         if (response.token) await storage.setItem("auth_token", response.token);
         await storage.setItem("user_data", JSON.stringify(user));
 
-        if (role === "admin" || nip.startsWith("CSR")) {
+        if (role === "admin" || nip.startsWith("CSR") || nip === "522002240020") {
           router.replace("/dashboard-admin");
         } else {
           router.replace("/dashboard-dosen");

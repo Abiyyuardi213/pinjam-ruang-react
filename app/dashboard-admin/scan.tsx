@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, useColorScheme, Platform, StatusBar, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, useColorScheme, Platform, StatusBar, ScrollView, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
@@ -18,9 +18,16 @@ export default function AdminScan() {
   const [scanned, setScanned] = React.useState(false);
   const [isCameraActive, setIsCameraActive] = React.useState(true);
   const [rooms, setRooms] = React.useState<any[]>([]);
+  const [lecturers, setLecturers] = React.useState<any[]>([]);
   const [step, setStep] = React.useState(1); // 1: Scan Ruang, 2: Scan Dosen
   const [scanMode, setScanMode] = React.useState<'pinjam' | 'kembali'>('pinjam'); // Mode Scan
   const [selectedRoom, setSelectedRoom] = React.useState<any>(null);
+  const [errorModal, setErrorModal] = React.useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error' as 'error' | 'success'
+  });
   const router = useRouter();
   
   // Force Light Theme
@@ -38,33 +45,59 @@ export default function AdminScan() {
   };
 
   React.useEffect(() => {
-    fetchRooms();
+    fetchMasterData();
   }, []);
-
-  const fetchRooms = async () => {
+  
+  const fetchMasterData = async () => {
     try {
-      const response = await apiService.getRuang();
-      if (response.success) {
-        setRooms(response.data?.data || response.data || []);
+      const [ruangResp, dosenResp] = await Promise.all([
+        apiService.getRuang(500),
+        apiService.getDosen()
+      ]);
+      
+      if (ruangResp.success) {
+        setRooms(ruangResp.data?.data || ruangResp.data || []);
+      }
+      
+      if (dosenResp.success) {
+        setLecturers(dosenResp.data || []);
       }
     } catch (e) {
-      console.error("Failed to fetch rooms for scanner", e);
+      console.error("Failed to fetch master data for scanner", e);
     }
   };
 
   const handleBarCodeScanned = async ({ type, data }: any) => {
+    if (scanned || !data) return;
     setScanned(true);
+
+    // Trim data to avoid hidden characters
+    const rawData = String(data).trim();
+    console.log(`[SCANNER] Scanned (${step}): ${rawData}`);
+
+    // Pastikan data ruangan sudah siap
+    if (rooms.length === 0) {
+      Toast.show({
+        type: 'info',
+        text1: 'Mohon Tunggu',
+        text2: 'Sedang mensinkronkan data database...',
+      });
+      setTimeout(() => setScanned(false), 2000);
+      return;
+    }
 
     if (step === 1) {
       // --- TAHAP 1: SCAN RUANG ---
-      let targetId = data;
-      if (data.startsWith('itatsqr1:r:')) {
-        const parts = data.split(':');
+      let targetId = rawData;
+      
+      // Handle format itatsqr1:r:RUANG_ID
+      if (rawData.toLowerCase().startsWith('itatsqr1:r:')) {
+        const parts = rawData.split(':');
         if (parts.length >= 3) targetId = parts[2];
       }
 
       const foundRoom = rooms.find(r => 
-        String(r.ruangid).toLowerCase() === String(targetId).toLowerCase()
+        String(r.ruangid || r.nama_ruang || '').trim().toLowerCase() === targetId.trim().toLowerCase()
       );
 
       if (foundRoom) {
@@ -72,31 +105,51 @@ export default function AdminScan() {
         Toast.show({
           type: 'success',
           text1: 'Tahap 1 Berhasil',
-          text2: `Ruang: ${foundRoom.ruangket}. Sekarang scan QR Dosen.`,
+          text2: `Ruang: ${foundRoom.ruangket || foundRoom.ruangid}. Lanjut scan Dosen.`,
           visibilityTime: 3000,
         });
         setStep(2);
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Ruang Tidak Dikenal',
-          text2: `ID: ${targetId} tidak ada di database.`,
+        setErrorModal({
+          visible: true,
+          title: 'Ruang Tidak Dikenal',
+          message: `ID Ruangan "${targetId}" tidak ditemukan dalam database ITATS. Pastikan Anda melakukan scan pada label QR yang benar.`,
+          type: 'error'
         });
       }
-      setTimeout(() => setScanned(false), 2000);
+      // Re-enable scanner after delay
+      setTimeout(() => setScanned(false), 2500);
 
     } else {
       // --- TAHAP 2: SCAN DOSEN/PEMINJAM ---
-      let dosenId = data;
-      if (data.startsWith('itatsqr1:d:')) {
-        const parts = data.split(':');
+      let dosenId = rawData;
+
+      // Handle format itatsqr1:d:DOSEN_ID
+      if (rawData.toLowerCase().startsWith('itatsqr1:d:')) {
+        const parts = rawData.split(':');
         if (parts.length >= 3) dosenId = parts[2];
+      }
+
+      // Cari data dosen di master data
+      const foundDosen = lecturers.find(d => 
+        String(d.dosid).trim().toLowerCase() === dosenId.trim().toLowerCase()
+      );
+
+      if (!foundDosen && scanMode === 'pinjam') {
+        setErrorModal({
+          visible: true,
+          title: 'Dosen Tidak Terdaftar',
+          message: `ID Dosen "${dosenId}" tidak ditemukan. Pastikan data dosen sudah diinput oleh Superadmin atau sinkronisasi ulang data.`,
+          type: 'error'
+        });
+        setTimeout(() => setScanned(false), 2500);
+        return;
       }
 
       Toast.show({
         type: 'info',
         text1: scanMode === 'pinjam' ? 'Memproses Peminjaman...' : 'Memproses Pengembalian...',
-        text2: `Ruang: ${selectedRoom.ruangid} | Dosen: ${dosenId}`,
+        text2: `Dosen: ${foundDosen?.dosnama || dosenId}`,
       });
 
       try {
@@ -110,6 +163,8 @@ export default function AdminScan() {
             ruang_id: selectedRoom.ruangid,
             tanggal: today,
             waktu_pinjam: now,
+            dosen_name: foundDosen?.dosnama || 'N/A',
+            ruang_name: selectedRoom?.ruangket || 'N/A'
           };
 
           const res = await apiService.savePeminjaman(payload);
@@ -147,10 +202,11 @@ export default function AdminScan() {
           }
         }
       } catch (error: any) {
-        Toast.show({
-          type: 'error',
-          text1: 'Gagal Memproses',
-          text2: error.message || 'Terjadi kesalahan koneksi.',
+        setErrorModal({
+          visible: true,
+          title: 'Gagal Memproses',
+          message: error.message || 'Terjadi kesalahan sistem saat menghubungi server ITATS. Mohon periksa koneksi internet Anda.',
+          type: 'error'
         });
         setScanned(false);
       }
@@ -291,6 +347,37 @@ export default function AdminScan() {
           <View style={{ height: 180 }} />
         </ScrollView>
       <Toast />
+
+      {/* Error/Status Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={errorModal.visible}
+        onRequestClose={() => setErrorModal(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+             <View style={[styles.modalIconBox, { backgroundColor: errorModal.type === 'error' ? '#FEF2F2' : '#F0FDF4' }]}>
+                <Ionicons 
+                  name={errorModal.type === 'error' ? 'alert-circle' : 'checkmark-circle'} 
+                  size={48} 
+                  color={errorModal.type === 'error' ? '#EF4444' : '#22C55E'} 
+                />
+             </View>
+             
+             <ThemedText style={styles.modalTitle}>{errorModal.title}</ThemedText>
+             <ThemedText style={styles.modalMessage}>{errorModal.message}</ThemedText>
+             
+             <TouchableOpacity 
+              style={[styles.modalBtn, { backgroundColor: errorModal.type === 'error' ? '#EF4444' : theme.primary }]}
+              onPress={() => setErrorModal(prev => ({ ...prev, visible: false }))}
+             >
+                <ThemedText style={styles.modalBtnText}>Tutup</ThemedText>
+             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -463,5 +550,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#1E293B',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    width: '100%',
+    borderRadius: 32,
+    padding: 32,
+    alignItems: 'center',
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+  },
+  modalIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#09090B',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  modalBtn: {
+    width: '100%',
+    height: 54,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+  },
+  modalBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
   }
 });

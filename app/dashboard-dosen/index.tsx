@@ -137,7 +137,7 @@ export default function DosenDashboard() {
             </View>
             
             <ThemedText style={styles.courseTitle} numberOfLines={2}>
-              {nextClass?.mknama || nextClass?.subject_name || 'Tidak ada jadwal hari ini'}
+              {nextClass?.mknama || nextClass?.subject_name || 'tidak ada jadwal mendatang'}
             </ThemedText>
             
             <View style={styles.timeInfoRow}>
@@ -180,7 +180,7 @@ export default function DosenDashboard() {
             {schedules.length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color="#E2E8F0" />
-                <ThemedText style={styles.emptyText}>Tidak ada jadwal ditemukan.</ThemedText>
+                <ThemedText style={styles.emptyText}>tidak ada jadwal mendatang</ThemedText>
               </View>
             )}
           </View>

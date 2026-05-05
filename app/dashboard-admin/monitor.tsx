@@ -105,9 +105,9 @@ export default function AdminMonitor() {
         if (currentSchedule) {
           const scheduledDosId = String(currentSchedule.dosid || currentSchedule.dosen_id);
           
-          // Cari apakah dosen ini sudah meminjam kuncinya (di ruangan mana saja)
-          const lecturerBorrowing = borrowings.find((b: any) => 
-            String(b.dosen_id) === scheduledDosId && b.status === "Dipinjam"
+          // 1. Cek apakah ada yang sedang meminjam ruangan ini (berdasarkan status 'Dipinjam')
+          const roomBorrowing = borrowings.find((b: any) => 
+            String(b.ruang_id).toUpperCase() === roomId && b.status === "Dipinjam"
           );
 
           let borrowInfo = {
@@ -116,9 +116,9 @@ export default function AdminMonitor() {
             actualRoom: null
           };
 
-          if (lecturerBorrowing) {
-            const borrowedRoomId = String(lecturerBorrowing.ruang_id).toUpperCase();
-            if (borrowedRoomId === roomId) {
+          if (roomBorrowing) {
+            const borrowerId = String(roomBorrowing.dosen_id);
+            if (borrowerId === scheduledDosId) {
               borrowInfo = {
                 status: "Kunci sudah diambil",
                 type: "success",
@@ -126,10 +126,41 @@ export default function AdminMonitor() {
               };
             } else {
               borrowInfo = {
-                status: `Dosen mengambil kunci ruangan berbeda: ${borrowedRoomId}`,
+                status: `Kunci diambil oleh Dosen Lain: ${roomBorrowing.dosen_name}`,
                 type: "danger",
-                actualRoom: borrowedRoomId
+                actualRoom: roomId
               };
+            }
+          } else {
+            // Cek apakah ada record peminjaman yang sudah SELESAI (Kembali) hari ini untuk ruangan & dosen ini
+            // Ini menandakan dosen sudah selesai mengajar sebelum jadwal berakhir
+            const returnedBorrowing = borrowings.find((b: any) => 
+              String(b.ruang_id).toUpperCase() === roomId && 
+              String(b.dosen_id) === scheduledDosId && 
+              b.status === "Kembali" &&
+              (b.tanggal === today || String(b.tanggal).startsWith(today))
+            );
+
+            if (returnedBorrowing) {
+              borrowInfo = {
+                status: "Kunci kembali mendahului jadwal selesai",
+                type: "warning",
+                actualRoom: roomId
+              };
+            } else {
+              // Jika kunci ruangan ini BELUM diambil, cek apakah dosen yang dijadwalkan malah meminjam ruangan lain
+              const lecturerBorrowingSomewhere = borrowings.find((b: any) => 
+                String(b.dosen_id) === scheduledDosId && b.status === "Dipinjam"
+              );
+
+              if (lecturerBorrowingSomewhere) {
+                const borrowedRoomId = String(lecturerBorrowingSomewhere.ruang_id).toUpperCase();
+                borrowInfo = {
+                  status: `Dosen mengambil kunci ruangan berbeda: ${borrowedRoomId}`,
+                  type: "danger",
+                  actualRoom: borrowedRoomId
+                };
+              }
             }
           }
 
