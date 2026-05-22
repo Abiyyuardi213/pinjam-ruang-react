@@ -1,11 +1,11 @@
 import { ThemedText } from "@/components/themed-text";
 import { storage } from "@/utils/storage";
-import { AdminSidebar } from "@/components/ui/admin-sidebar";
 import { apiService } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React from "react";
 import {
+    Alert,
     Platform,
     ScrollView,
     StatusBar,
@@ -15,21 +15,40 @@ import {
     View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
 
 export default function AdminDashboard() {
-  const insets = useSafeAreaInsets();
+   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const router = useRouter();
-  const [sidebarVisible, setSidebarVisible] = React.useState(false);
   const [stats, setStats] = React.useState({ ruang: 0, terpakai: 0 });
   const [recentJadwal, setRecentJadwal] = React.useState<any[]>([]);
   const [userData, setUserData] = React.useState<any>(null);
 
-  // Gunakan useFocusEffect agar dashboard selalu sinkron dengan data terbaru
+  // Refs to avoid stale closures in setInterval
+  const lecturersRef = React.useRef<any[]>([]);
+  const schedulesRef = React.useRef<any[]>([]);
+  const activeRuangCountRef = React.useRef(0);
+
+  // Gunakan useFocusEffect agar dashboard selalu sinkron dengan data terbaru secara real-time
   useFocusEffect(
     React.useCallback(() => {
-      fetchData();
-      loadUserData();
+      const load = async () => {
+        loadUserData();
+        await loadCachedData();
+        await fetchData(false);
+        // Jalankan sinkronisasi data referensi di background tanpa menghalangi UI utama
+        revalidateCache().catch(() => {});
+      };
+      load();
+
+      const interval = setInterval(() => {
+        fetchData(true);
+      }, 10000);
+
+      return () => {
+        clearInterval(interval);
+      };
     }, []),
   );
 
@@ -47,11 +66,6 @@ export default function AdminDashboard() {
     cardBg: "#FFFFFF",
   };
 
-  React.useEffect(() => {
-    fetchData();
-    loadUserData();
-  }, []);
-
   const loadUserData = async () => {
     const saved = await storage.getItem("user_data");
     if (saved) {
@@ -61,48 +75,143 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchData = async () => {
+  const loadCachedData = async () => {
     try {
-      const [dosenData, ruangData, peminjamanData, jadwalData] = await Promise.all([
+      const cachedDosen = await storage.getItem("cached_dosen");
+      const cachedJadwal = await storage.getItem("cached_jadwal");
+      if (cachedDosen) {
+        lecturersRef.current = JSON.parse(cachedDosen);
+      }
+      if (cachedJadwal) {
+        schedulesRef.current = JSON.parse(cachedJadwal);
+      }
+    } catch (error) {
+      console.warn("[CACHE] Gagal memuat cache lokal:", error);
+    }
+  };
+
+  const revalidateCache = async () => {
+    try {
+      console.log("[CACHE] Memperbarui data referensi di background...");
+      const [dosenData, jadwalData] = await Promise.all([
         apiService.getDosen(),
-        apiService.getRuang(),
-        apiService.getPeminjaman(),
         apiService.getJadwal(),
       ]);
 
-      // Filter dosen dengan status aktif
-      const allDosen = Array.isArray(dosenData.data) ? dosenData.data : [];
+      if (dosenData.success && Array.isArray(dosenData.data) && dosenData.data.length > 0) {
+        lecturersRef.current = dosenData.data;
+        await storage.setItem("cached_dosen", JSON.stringify(dosenData.data));
+      }
+      if (jadwalData.success && Array.isArray(jadwalData.data) && jadwalData.data.length > 0) {
+        schedulesRef.current = jadwalData.data;
+        await storage.setItem("cached_jadwal", JSON.stringify(jadwalData.data));
+      }
+      console.log("[CACHE] Pembaruan data referensi di background selesai.");
+    } catch (e) {
+      console.warn("[CACHE] Gagal memperbarui cache di background:", e);
+    }
+  };
 
-      // Filter ruangan dengan status aktif
-      const allRuang = Array.isArray(ruangData.data) ? ruangData.data : [];
-      const activeRuang = allRuang.filter((r: any) => 
-        r.ruangstatus === true || 
-        r.ruangstatus === 'true' || 
-        r.ruangstatus === 1 || 
-        String(r.ruangstatus) === '1' || 
-        String(r.ruangstatus) === 'true'
-      );
+  const fetchData = async (isPolling = false) => {
+    try {
+      let dosenList = lecturersRef.current;
+      let scheduleList = schedulesRef.current;
+      let activeRuang = activeRuangCountRef.current;
+      let peminjamanData;
 
-      // Hitung ruangan yang sedang digunakan (peminjaman aktif)
-      const borrowings = Array.isArray(peminjamanData.data) ? peminjamanData.data : [];
-      const usedRoomsCount = borrowings.filter((b: any) => b.status === 'Dipinjam').length;
+      if (!isPolling) {
+        // Jika data referensi masih kosong di memory, coba ambil dari storage
+        if (dosenList.length === 0 || scheduleList.length === 0) {
+          const cachedDosen = await storage.getItem("cached_dosen");
+          const cachedJadwal = await storage.getItem("cached_jadwal");
+          if (cachedDosen) {
+            dosenList = JSON.parse(cachedDosen);
+            lecturersRef.current = dosenList;
+          }
+          if (cachedJadwal) {
+            scheduleList = JSON.parse(cachedJadwal);
+            schedulesRef.current = scheduleList;
+          }
+        }
 
-      setStats({
-        terpakai: usedRoomsCount,
-        ruang: activeRuang.length,
-      });
+        // Siapkan Fetch Promises (jika sudah ada di memori/cache, abaikan pemanggilan API agar cepat)
+        const dosenPromise = dosenList.length === 0 
+          ? apiService.getDosen() 
+          : Promise.resolve({ success: true, data: dosenList });
+          
+        const jadwalPromise = scheduleList.length === 0 
+          ? apiService.getJadwal() 
+          : Promise.resolve({ success: true, data: scheduleList });
 
-      if (peminjamanData.success) {
-        const schedules = Array.isArray(jadwalData.data) ? jadwalData.data : [];
+        const [dosenData, ruangData, peminjamanDataRes, jadwalData] = await Promise.all([
+          dosenPromise,
+          apiService.getRuang(),
+          apiService.getPeminjaman(),
+          jadwalPromise,
+        ]);
+
+        if (dosenList.length === 0 && dosenData.success) {
+          dosenList = Array.isArray(dosenData.data) ? dosenData.data : [];
+          lecturersRef.current = dosenList;
+          storage.setItem("cached_dosen", JSON.stringify(dosenList)).catch(() => {});
+        }
+
+        const allRuang = Array.isArray(ruangData.data) ? ruangData.data : [];
+        if (allRuang.length > 0) {
+          const filteredActiveRuang = allRuang.filter((r: any) => 
+            r.ruangstatus === true || 
+            r.ruangstatus === 'true' || 
+            r.ruangstatus === 1 || 
+            String(r.ruangstatus) === '1' || 
+            String(r.ruangstatus) === 'true'
+          );
+          activeRuang = filteredActiveRuang.length;
+          activeRuangCountRef.current = activeRuang;
+        }
+
+        if (scheduleList.length === 0 && jadwalData.success) {
+          scheduleList = Array.isArray(jadwalData.data) ? jadwalData.data : [];
+          schedulesRef.current = scheduleList;
+          storage.setItem("cached_jadwal", JSON.stringify(scheduleList)).catch(() => {});
+        }
+
+        peminjamanData = peminjamanDataRes;
+      } else {
+        peminjamanData = await apiService.getPeminjaman();
+      }
+
+      if (peminjamanData && peminjamanData.success) {
+        const borrowings = Array.isArray(peminjamanData.data) ? peminjamanData.data : [];
+        const usedRoomsCount = borrowings.filter((b: any) => b.status === 'Dipinjam').length;
+
+        setStats({
+          terpakai: usedRoomsCount,
+          ruang: activeRuang,
+        });
+
+        const rawList = borrowings;
         
+        // Sort by the latest action time (waktu_kembali if returned, otherwise waktu_pinjam) descending
+        const sorted = [...rawList].sort((a: any, b: any) => {
+          const parseTime = (tanggal: string, waktu: string | null) => {
+            if (!waktu || waktu === '-') return 0;
+            const parsed = new Date(`${tanggal}T${waktu}:00`);
+            return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+          };
+          
+          const timeA = parseTime(a.tanggal, a.waktu_kembali || a.waktu_pinjam);
+          const timeB = parseTime(b.tanggal, b.waktu_kembali || b.waktu_pinjam);
+          return timeB - timeA;
+        });
+
         // Enrich activities with schedule matching
-        const enriched = (peminjamanData.data || []).slice(0, 6).map((item: any) => {
+        const enriched = sorted.slice(0, 6).map((item: any) => {
             const itemDate = new Date(item.tanggal);
             let itemDay = itemDate.getDay();
             if (itemDay === 0) itemDay = 7;
             const itemTime = (item.waktu_pinjam || '00:00') + ':00';
             
-            const match = schedules.find((s: any) => {
+            const match = scheduleList.find((s: any) => {
                 const sDosId = String(s.dosid || s.dosen_id);
                 const sHari = String(s.hari);
                 const start = s.jammulai || s.jam_mulai;
@@ -128,7 +237,18 @@ export default function AdminDashboard() {
                 }
             }
             
-            return { ...item, schStatus, schColor };
+            // Resolve returning lecturer's name
+            let pengembali_name = null;
+            if (item.dosid_pengembalian) {
+              const matchedDosen = dosenList.find((d: any) => 
+                String(d.dosid).trim().toLowerCase() === String(item.dosid_pengembalian).trim().toLowerCase()
+              );
+              if (matchedDosen) {
+                pengembali_name = matchedDosen.dosnama;
+              }
+            }
+            
+            return { ...item, schStatus, schColor, pengembali_name };
         });
         
         setRecentJadwal(enriched);
@@ -138,13 +258,40 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    const performLogout = async () => {
+      await storage.removeItem('user_data');
+      await storage.removeItem('auth_token');
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Logout Berhasil',
+        text2: 'Sesi Anda telah berakhir dengan aman.',
+        visibilityTime: 3000,
+      });
+
+      router.replace('/login');
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Apakah Anda yakin ingin keluar?')) {
+        performLogout();
+      }
+    } else {
+      Alert.alert(
+        'Konfirmasi Keluar',
+        'Apakah Anda yakin ingin keluar?',
+        [
+          { text: 'Batal', style: 'cancel' },
+          { text: 'Keluar', onPress: performLogout, style: 'destructive' }
+        ]
+      );
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <AdminSidebar
-        isVisible={sidebarVisible}
-        onClose={() => setSidebarVisible(false)}
-      />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -153,23 +300,18 @@ export default function AdminDashboard() {
         {/* Modern Header Area */}
         <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
           <View style={styles.headerTop}>
+            <View />
             <TouchableOpacity
-              onPress={() => setSidebarVisible(true)}
-              style={styles.iconBtn}
+              onPress={() => router.push("/dashboard-admin/profile")}
+              style={styles.profileBtn}
             >
-                <Ionicons name="grid-outline" size={24} color="#FFF" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push("/dashboard-admin/profile")}
-                style={styles.profileBtn}
-              >
-                <View style={styles.avatarContainer}>
-                  <ThemedText style={styles.avatarText}>
-                    {(userData?.fullname || userData?.name || "A").substring(0, 1).toUpperCase()}
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
+              <View style={styles.avatarContainer}>
+                <ThemedText style={styles.avatarText}>
+                  {(userData?.fullname || userData?.name || "A").substring(0, 1).toUpperCase()}
+                </ThemedText>
+              </View>
+            </TouchableOpacity>
+          </View>
             <View style={styles.headerContent}>
               <ThemedText style={styles.greetingText}>
                 Selamat Datang,
@@ -205,44 +347,97 @@ export default function AdminDashboard() {
           <View style={styles.actionSection}>
             <ThemedText style={styles.sectionTitle}>Akses Cepat</ThemedText>
             <View style={styles.actionGrid}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={[styles.actionItem, { backgroundColor: "#FFF" }]}
-                onPress={() => router.push("/dashboard-admin/scan")}
-              >
-                <View
-                  style={[styles.actionIcon, { backgroundColor: "#EFF6FF" }]}
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={() => router.push("/dashboard-admin/scan")}
                 >
-                  <Ionicons name="qr-code" size={24} color="#2563EB" />
-                </View>
-                <ThemedText style={styles.actionLabel}>Scan QR</ThemedText>
-              </TouchableOpacity>
+                  <View style={[styles.actionIcon, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="qr-code" size={22} color="#2563EB" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Scan QR</ThemedText>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={[styles.actionItem, { backgroundColor: "#FFF" }]}
-                onPress={() => router.push("/dashboard-admin/rooms")}
-              >
-                <View
-                  style={[styles.actionIcon, { backgroundColor: "#F0FDF4" }]}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={() => router.push("/dashboard-admin/rooms")}
                 >
-                  <Ionicons name="layers" size={24} color="#166534" />
-                </View>
-                <ThemedText style={styles.actionLabel}>Data Ruang</ThemedText>
-              </TouchableOpacity>
+                  <View style={[styles.actionIcon, { backgroundColor: "#F0FDF4" }]}>
+                    <Ionicons name="layers" size={22} color="#166534" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Data Ruang</ThemedText>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={[styles.actionItem, { backgroundColor: "#FFF" }]}
-                onPress={() => router.push("/dashboard-admin/monitor")}
-              >
-                <View
-                  style={[styles.actionIcon, { backgroundColor: "#FFF7ED" }]}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={() => router.push("/dashboard-admin/peminjaman")}
                 >
-                  <Ionicons name="eye" size={24} color="#C2410C" />
-                </View>
-                <ThemedText style={styles.actionLabel}>Monitoring</ThemedText>
-              </TouchableOpacity>
+                  <View style={[styles.actionIcon, { backgroundColor: "#F5F3FF" }]}>
+                    <Ionicons name="calendar" size={22} color="#7C3AED" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Peminjaman</ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={() => router.push("/dashboard-admin/monitor")}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: "#FFF7ED" }]}>
+                    <Ionicons name="eye" size={22} color="#C2410C" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Monitoring</ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.actionRow, { marginTop: 12 }]}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={() => router.push("/dashboard-admin/mapping")}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: "#ECFDF5" }]}>
+                    <Ionicons name="map" size={22} color="#059669" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Mapping</ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={() => router.push("/dashboard-admin/subjects")}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: "#FEF2F2" }]}>
+                    <Ionicons name="book" size={22} color="#DC2626" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Mata Kuliah</ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={() => router.push("/dashboard-admin/profile")}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: "#F1F5F9" }]}>
+                    <Ionicons name="person" size={22} color="#475569" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Profil</ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.actionItem}
+                  onPress={handleLogout}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: "#FEF2F2" }]}>
+                    <Ionicons name="log-out" size={22} color="#EF4444" />
+                  </View>
+                  <ThemedText style={styles.actionLabel} numberOfLines={1}>Keluar</ThemedText>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -310,9 +505,14 @@ export default function AdminDashboard() {
                       <ThemedText style={styles.activityName} numberOfLines={1}>
                         {item.dosen_name}
                       </ThemedText>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {item.status === "Kembali" && item.pengembali_name && (
+                        <ThemedText style={{ fontSize: 11, color: '#166534', fontWeight: '600', marginTop: 1 }} numberOfLines={1}>
+                          Kembali oleh: {item.pengembali_name}
+                        </ThemedText>
+                      )}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                         <ThemedText style={styles.activitySub}>
-                          {item.ruang_id} • {item.waktu_pinjam}
+                          {item.ruang_id} • {item.waktu_pinjam}{item.status === 'Kembali' && item.waktu_kembali ? ` - ${item.waktu_kembali}` : ''}
                         </ThemedText>
                         <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: '#CBD5E1' }} />
                         <ThemedText style={{ fontSize: 10, fontWeight: '800', color: item.schColor || '#64748B' }}>
@@ -468,14 +668,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   actionGrid: {
+    flexDirection: "column",
+  },
+  actionRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
   },
   actionItem: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     borderRadius: 20,
     alignItems: "center",
+    backgroundColor: "#FFF",
     borderWidth: 1,
     borderColor: "#F1F1F4",
     elevation: 2,
@@ -485,17 +690,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   actionIcon: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   actionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "#1E293B",
+    textAlign: "center",
   },
   section: {
     paddingHorizontal: 24,

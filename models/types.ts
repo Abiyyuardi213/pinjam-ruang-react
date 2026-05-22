@@ -22,6 +22,9 @@ export interface BorrowingRecord {
   waktu_pinjam: string;
   waktu_kembali: string | null;
   status: 'Dipinjam' | 'Kembali';
+  dosid_pengembalian?: string | null;
+  dosid_input_kembali?: string | null;
+  input_kembali_name?: string | null;
   is_api_data?: boolean;
 }
 

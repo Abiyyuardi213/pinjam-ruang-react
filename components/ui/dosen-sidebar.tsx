@@ -93,7 +93,7 @@ export function DosenSidebar({ isVisible, onClose }: SidebarProps) {
             </View>
             <View style={styles.userDetails}>
                <ThemedText style={styles.userName} numberOfLines={1}>{userData?.fullname || userData?.name || 'Dosen ITATS'}</ThemedText>
-               <ThemedText style={styles.userNip}>{userData?.nip || 'NIP: 0725048901'}</ThemedText>
+               <ThemedText style={styles.userNip}>NIP: {userData?.nip || userData?.name || '-'}</ThemedText>
             </View>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>

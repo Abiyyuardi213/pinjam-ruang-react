@@ -5,11 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { useRouter } from 'expo-router';
 import { AdminHeader } from '@/components/ui/admin-header';
-import { AdminSidebar } from '@/components/ui/admin-sidebar';
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const [sidebarVisible, setSidebarVisible] = React.useState(false);
   const [fullname, setFullname] = React.useState('');
   const [nip, setNip] = React.useState('');
   const [roles, setRoles] = React.useState<string[]>([]);
@@ -46,15 +44,12 @@ export default function EditProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <AdminSidebar isVisible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
       
       <AdminHeader 
         title="Detail Profil"
         subtitle="Informasi data pribadi Anda"
         showBack={true}
         onBack={() => router.push('/dashboard-admin/profile')}
-        showMenu={true}
-        onMenuPress={() => setSidebarVisible(true)}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

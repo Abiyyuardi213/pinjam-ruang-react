@@ -44,7 +44,7 @@ export class BaseService {
     }
   }
 
-  public static async fetchAll(endpoint: string, params: string = "") {
+  public static async fetchAll(endpoint: string, params: string = "", maxPages: number = 999) {
     let allData: any[] = [];
     let currentPage = 1;
     let lastPage = 1;
@@ -68,7 +68,7 @@ export class BaseService {
           break;
         }
         currentPage++;
-      } while (currentPage <= lastPage && currentPage <= 500);
+      } while (currentPage <= lastPage && currentPage <= maxPages);
 
       return allData;
     } catch (error) {

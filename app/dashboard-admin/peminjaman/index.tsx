@@ -58,7 +58,7 @@ export default function PeminjamanRuangScreen() {
     setRefreshing(false);
   };
 
-  const handleReturn = async (id: string) => {
+  const handleReturn = async (id: string, dosenId: string) => {
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const dateStr = now.toISOString().split('T')[0];
@@ -70,7 +70,7 @@ export default function PeminjamanRuangScreen() {
     ));
     
     // Update di API/Persistence
-    await apiService.updateStatus(id, 'Kembali', fullTime);
+    await apiService.updateStatus(id, 'Kembali', fullTime, dosenId);
     
     Toast.show({
       type: 'success',
@@ -148,7 +148,7 @@ export default function PeminjamanRuangScreen() {
         {item.status === 'Dipinjam' && (
           <TouchableOpacity 
             style={[styles.actionBtn, { backgroundColor: theme.primary, borderColor: theme.primary }]}
-            onPress={() => handleReturn(item.id)}
+            onPress={() => handleReturn(item.id, item.dosen_id)}
           >
             <Ionicons name="return-down-back" size={16} color="#FFF" />
             <ThemedText style={[styles.actionText, { color: '#FFF' }]}>Kembali</ThemedText>

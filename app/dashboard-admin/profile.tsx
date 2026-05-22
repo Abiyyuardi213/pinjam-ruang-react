@@ -7,14 +7,12 @@ import { ThemedText } from '@/components/themed-text';
 import { useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AdminHeader } from '@/components/ui/admin-header';
-import { AdminSidebar } from '@/components/ui/admin-sidebar';
 import Toast from 'react-native-toast-message';
 
 export default function AdminProfile() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const [userData, setUserData] = React.useState<any>(null);
-  const [sidebarVisible, setSidebarVisible] = React.useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = React.useState(false);
   
   // Force Light Theme
@@ -64,14 +62,12 @@ export default function AdminProfile() {
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <AdminSidebar isVisible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
         
         <AdminHeader 
           title="Profil Saya"
           subtitle="Kelola informasi akun dan preferensi"
-          showBack={false}
-          showMenu={true}
-          onMenuPress={() => setSidebarVisible(true)}
+          showBack={true}
+          onBack={() => router.push('/dashboard-admin')}
         />
 
         <ScrollView 

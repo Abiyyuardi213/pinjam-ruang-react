@@ -3,7 +3,6 @@ import { StyleSheet, View, TouchableOpacity, useColorScheme, Platform, StatusBar
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
-import { AdminSidebar } from '@/components/ui/admin-sidebar';
 
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -13,7 +12,6 @@ import { apiService } from '@/services/api';
 import { AdminHeader } from '@/components/ui/admin-header';
 
 export default function AdminScan() {
-  const [sidebarVisible, setSidebarVisible] = React.useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = React.useState(false);
   const [isCameraActive, setIsCameraActive] = React.useState(true);
@@ -188,11 +186,16 @@ export default function AdminScan() {
             );
 
             if (activeRecord) {
-              const res = await apiService.updateStatus(activeRecord.id);
+              const res = await apiService.updateStatus(activeRecord.id, 'Kembali', undefined, dosenId);
               if (res.success) {
                 Toast.show({ type: 'success', text1: 'Pengembalian Berhasil', text2: 'Kunci telah diterima.' });
+                setErrorModal({
+                  visible: true,
+                  title: 'Pengembalian Berhasil',
+                  message: `Kunci ruangan ${selectedRoom.ruangid} yang dipinjam oleh ${foundDosen?.dosnama || dosenId} telah berhasil dikembalikan dan diterima.`,
+                  type: 'success'
+                });
                 setStep(1); setSelectedRoom(null);
-                router.replace('/dashboard-admin/peminjaman');
               } else {
                 throw new Error(res.message);
               }
@@ -221,13 +224,11 @@ export default function AdminScan() {
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <AdminSidebar isVisible={sidebarVisible} onClose={() => setSidebarVisible(false)} />
-      
         <AdminHeader 
           title="Validasi QR"
           subtitle="Input Transaksi Kunci ITATS"
-          showMenu={true}
-          onMenuPress={() => setSidebarVisible(true)}
+          showBack={true}
+          onBack={() => router.push('/dashboard-admin')}
         />
 
 
@@ -353,7 +354,10 @@ export default function AdminScan() {
         animationType="fade"
         transparent={true}
         visible={errorModal.visible}
-        onRequestClose={() => setErrorModal(prev => ({ ...prev, visible: false }))}
+        onRequestClose={() => {
+          setErrorModal(prev => ({ ...prev, visible: false }));
+          setScanned(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -370,7 +374,10 @@ export default function AdminScan() {
              
              <TouchableOpacity 
               style={[styles.modalBtn, { backgroundColor: errorModal.type === 'error' ? '#EF4444' : theme.primary }]}
-              onPress={() => setErrorModal(prev => ({ ...prev, visible: false }))}
+              onPress={() => {
+                setErrorModal(prev => ({ ...prev, visible: false }));
+                setScanned(false);
+              }}
              >
                 <ThemedText style={styles.modalBtnText}>Tutup</ThemedText>
              </TouchableOpacity>

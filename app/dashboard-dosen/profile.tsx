@@ -57,7 +57,7 @@ export default function ProfileDosen() {
             </ThemedText>
           </View>
           <ThemedText style={styles.userName}>{userData?.fullname || userData?.name || 'Dosen ITATS'}</ThemedText>
-          <ThemedText style={styles.userNip}>{userData?.nip || 'NIP: 0725048901'}</ThemedText>
+          <ThemedText style={styles.userNip}>NIP: {userData?.nip || userData?.name || '411604240153'}</ThemedText>
           <View style={styles.roleTag}>
              <ThemedText style={styles.roleText}>DOSEN TETAP</ThemedText>
           </View>

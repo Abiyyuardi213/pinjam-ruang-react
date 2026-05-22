@@ -22,7 +22,7 @@ export class BorrowingService extends BaseService {
   static async getPeminjaman(tanggal?: string) {
     try {
       const queryParam = tanggal ? `tanggal_pinjam=${tanggal}` : "";
-      const list = await this.fetchAll("/peminjaman-ruang", queryParam);
+      const list = await this.fetchAll("/peminjaman-ruang", queryParam, 2);
 
       const normalizedApiData = (Array.isArray(list) ? list : []).map((item: any) => ({
         id: String(item.id_peminjaman_ruang),
@@ -34,6 +34,9 @@ export class BorrowingService extends BaseService {
         waktu_pinjam: item.waktu_pinjam ? item.waktu_pinjam.split("T")[1]?.substring(0, 5) : "-",
         waktu_kembali: item.waktu_kembali ? item.waktu_kembali.split("T")[1]?.substring(0, 5) : null,
         status: item.waktu_kembali ? "Kembali" : "Dipinjam",
+        dosid_pengembalian: item.dosid_pengembalian || null,
+        dosid_input_kembali: item.dosid_input_kembali || null,
+        input_kembali_name: item.input_kembali_dosen?.dosnama || null,
         is_api_data: true,
       }));
 
@@ -67,12 +70,15 @@ export class BorrowingService extends BaseService {
     }
   }
 
-  static async updateStatus(id: string, status?: string, waktu_kembali?: string) {
+  static async updateStatus(id: string, status?: string, waktu_kembali?: string, dosid_pengembalian?: string) {
     const adminId = await this._getLoggedInAdminId();
     try {
       const response = await this.request(`/peminjaman-ruang/${id}/return-key`, {
         method: "POST",
-        body: JSON.stringify({ dosid_input_kembali: adminId }),
+        body: JSON.stringify({ 
+          dosid_input_kembali: adminId,
+          dosid_pengembalian: dosid_pengembalian || null
+        }),
       });
 
       if (response && response.success) {
@@ -93,6 +99,7 @@ export class BorrowingService extends BaseService {
         waktu_pinjam: `${data.tanggal} ${data.waktu_pinjam}`,
         waktu_kembali: data.waktu_kembali ? `${data.tanggal} ${data.waktu_kembali}` : null,
         dosid_input_kembali: data.waktu_kembali ? adminId : null,
+        dosid_pengembalian: data.waktu_kembali ? data.dosen_id : null,
       };
 
       return await this.request(`/peminjaman-ruang/${id}`, {
