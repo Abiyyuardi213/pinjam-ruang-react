@@ -18,14 +18,14 @@ export function BottomBar({
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
-  // Force Light Mode untuk Bottom Bar
-  const isDark = false;
+  // Force Dark Mode untuk Bottom Bar
+  const isDark = true;
 
-  // Shadcn style floating nav colors (Light)
-  const navBg = "#FFFFFF";
-  const navBorder = "#E2E8F0";
-  const activeColor = "#2563EB"; // Shadcn Blue
-  const inactiveColor = "#64748B"; // Muted text
+  // Shadcn style floating nav colors (Dark)
+  const navBg = "#0F172A"; // Slate 900
+  const navBorder = "#1E293B"; // Slate 800
+  const activeColor = "#3B82F6"; // Vibrant Blue
+  const inactiveColor = "#94A3B8"; // Muted Slate-400
 
   return (
     <View
@@ -34,7 +34,10 @@ export function BottomBar({
         {
           backgroundColor: navBg,
           borderColor: navBorder,
-          shadowColor: isDark ? "#000" : "#E2E8F0",
+          shadowColor: "#000",
+          shadowOpacity: 0.3,
+          shadowOffset: { width: 0, height: 8 },
+          shadowRadius: 16,
           bottom: Platform.OS === "ios" ? insets.bottom || 24 : 24,
         },
       ]}
@@ -86,10 +89,15 @@ export function BottomBar({
             onPress={onPress}
             style={styles.tabButton}
           >
-            <View style={styles.iconContainer}>
+            <View
+              style={[
+                styles.iconContainer,
+                isFocused && { backgroundColor: "rgba(59, 130, 246, 0.15)" },
+              ]}
+            >
               <Ionicons
                 name={iconName as any}
-                size={24} // Slightly increased to 24 for better visibility without background
+                size={22}
                 color={isFocused ? activeColor : inactiveColor}
               />
             </View>

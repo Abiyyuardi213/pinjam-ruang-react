@@ -102,17 +102,115 @@ export default function HistoryDosen() {
                    bTime < (end.length === 5 ? end + ':00' : end);
           });
 
-          // Fallback search if no exact match (same day and lecturer, but maybe different time/room)
-          const fallbackMatch = !match ? schedules.find((s: any) => 
-            String(s.dosid || s.dosen_id) === lecturerId && String(s.hari) === String(bDay)
-          ) : null;
+          // Find all schedules for this lecturer on this day
+          const daySchedules = schedules.filter((s: any) => {
+            const sDosId = String(s.dosid || s.dosen_id);
+            return sDosId === lecturerId && String(s.hari) === String(bDay);
+          });
+
+          let roomStatus = { isCorrect: false, text: 'Luar Jadwal', detail: 'Tidak ada jadwal hari ini', color: '#64748B' };
+          let timeStatus = { isCorrect: false, text: 'Luar Jadwal', detail: 'Tidak ada jadwal hari ini', color: '#64748B' };
+          let matchedSubject = b.status === 'Kembali' ? 'Kegiatan Selesai' : 'Kegiatan Mandiri';
+
+          if (match) {
+            roomStatus = { isCorrect: true, text: 'Sesuai', detail: `Ruang ${b.ruang_id}`, color: '#166534' };
+            timeStatus = { isCorrect: true, text: 'Sesuai', detail: `Jam ${(match.jammulai || match.jam_mulai).substring(0, 5)} - ${(match.jamhingga || match.jam_hingga).substring(0, 5)}`, color: '#166534' };
+            matchedSubject = match.mknama || match.subject_name || matchedSubject;
+          } else if (daySchedules.length > 0) {
+            // Find schedule that matches the time
+            const timeMatchedSchedule = daySchedules.find((s: any) => {
+              const start = s.jammulai || s.jam_mulai;
+              const end = s.jamhingga || s.jam_hingga;
+              const formattedStart = start.length === 5 ? start + ':00' : start;
+              const formattedEnd = end.length === 5 ? end + ':00' : end;
+              return bTime >= formattedStart && bTime < formattedEnd;
+            });
+
+            if (timeMatchedSchedule) {
+              matchedSubject = timeMatchedSchedule.mknama || timeMatchedSchedule.subject_name || matchedSubject;
+              timeStatus = { 
+                isCorrect: true, 
+                text: 'Sesuai', 
+                detail: `Jam ${(timeMatchedSchedule.jammulai || timeMatchedSchedule.jam_mulai).substring(0, 5)} - ${(timeMatchedSchedule.jamhingga || timeMatchedSchedule.jam_hingga).substring(0, 5)}`, 
+                color: '#166534' 
+              };
+              const schedRoom = timeMatchedSchedule.ruangid || timeMatchedSchedule.ruang_id;
+              roomStatus = { 
+                isCorrect: false, 
+                text: 'Beda Ruangan', 
+                detail: `Jadwal di ${schedRoom} (Aktual: ${b.ruang_id})`, 
+                color: '#B45309' 
+              };
+            } else {
+              // Find schedule that matches the room
+              const roomMatchedSchedule = daySchedules.find((s: any) => 
+                String(s.ruangid || s.ruang_id).toUpperCase() === String(b.ruang_id).toUpperCase()
+              );
+
+              if (roomMatchedSchedule) {
+                matchedSubject = roomMatchedSchedule.mknama || roomMatchedSchedule.subject_name || matchedSubject;
+                roomStatus = { 
+                  isCorrect: true, 
+                  text: 'Sesuai', 
+                  detail: `Ruang ${b.ruang_id}`, 
+                  color: '#166534' 
+                };
+                const schedStart = (roomMatchedSchedule.jammulai || roomMatchedSchedule.jam_mulai).substring(0, 5);
+                const schedEnd = (roomMatchedSchedule.jamhingga || roomMatchedSchedule.jam_hingga).substring(0, 5);
+                timeStatus = { 
+                  isCorrect: false, 
+                  text: 'Beda Jam', 
+                  detail: `Jadwal: ${schedStart} - ${schedEnd} (Aktual: ${(b.waktu_pinjam || '').substring(0, 5)})`, 
+                  color: '#B45309' 
+                };
+              } else {
+                // Find closest schedule by time
+                const timeToMinutes = (timeStr: string) => {
+                  const [h, m] = timeStr.split(':').map(Number);
+                  return (h || 0) * 60 + (m || 0);
+                };
+                const bMin = timeToMinutes(b.waktu_pinjam || '00:00');
+                let closestSchedule = daySchedules[0];
+                let minDiff = Infinity;
+                daySchedules.forEach((s: any) => {
+                  const startStr = s.jammulai || s.jam_mulai || '00:00';
+                  const startMin = timeToMinutes(startStr);
+                  const diff = Math.abs(bMin - startMin);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    closestSchedule = s;
+                  }
+                });
+
+                matchedSubject = closestSchedule.mknama || closestSchedule.subject_name || matchedSubject;
+                const schedRoom = closestSchedule.ruangid || closestSchedule.ruang_id;
+                const schedStart = (closestSchedule.jammulai || closestSchedule.jam_mulai).substring(0, 5);
+                const schedEnd = (closestSchedule.jamhingga || closestSchedule.jam_hingga).substring(0, 5);
+                
+                roomStatus = { 
+                  isCorrect: false, 
+                  text: 'Beda Ruangan', 
+                  detail: `Jadwal di ${schedRoom} (Aktual: ${b.ruang_id})`, 
+                  color: '#B45309' 
+                };
+                timeStatus = { 
+                  isCorrect: false, 
+                  text: 'Beda Jam', 
+                  detail: `Jadwal: ${schedStart} - ${schedEnd} (Aktual: ${(b.waktu_pinjam || '').substring(0, 5)})`, 
+                  color: '#B45309' 
+                };
+              }
+            }
+          }
 
           return {
             ...b,
-            mknama: match?.mknama || match?.subject_name || fallbackMatch?.mknama || (b.status === 'Kembali' ? 'Kegiatan Selesai' : 'Kegiatan Mandiri'),
-            schStatus: match ? 'Sesuai Jadwal' : (fallbackMatch ? `Beda Ruang/Jam (${fallbackMatch.mknama})` : 'Luar Jadwal'),
-            schColor: match ? '#166534' : (fallbackMatch ? '#B45309' : '#64748B'),
-            isMatch: !!match
+            mknama: matchedSubject,
+            schStatus: match ? 'Sesuai Jadwal' : (daySchedules.length > 0 ? 'Beda Ruang/Jam' : 'Luar Jadwal'),
+            schColor: match ? '#166534' : (daySchedules.length > 0 ? '#B45309' : '#64748B'),
+            isMatch: !!match,
+            roomStatus,
+            timeStatus
           };
         });
 
@@ -220,6 +318,41 @@ export default function HistoryDosen() {
                     </View>
                   </View>
 
+                  {/* Status Kesesuaian Ruangan & Jam */}
+                  <View style={styles.statusSection}>
+                    <View style={styles.statusRow}>
+                      <Ionicons 
+                        name={item.roomStatus?.isCorrect ? "checkmark-circle" : "close-circle"} 
+                        size={16} 
+                        color={item.roomStatus?.color || '#64748B'} 
+                      />
+                      <View style={styles.statusDetails}>
+                        <ThemedText style={styles.statusLabel}>
+                          Ruangan: <ThemedText style={[styles.statusValue, { color: item.roomStatus?.color }]}>{item.roomStatus?.text}</ThemedText>
+                        </ThemedText>
+                        {item.roomStatus?.detail ? (
+                          <ThemedText style={styles.statusDesc}>{item.roomStatus.detail}</ThemedText>
+                        ) : null}
+                      </View>
+                    </View>
+
+                    <View style={styles.statusRow}>
+                      <Ionicons 
+                        name={item.timeStatus?.isCorrect ? "checkmark-circle" : "close-circle"} 
+                        size={16} 
+                        color={item.timeStatus?.color || '#64748B'} 
+                      />
+                      <View style={styles.statusDetails}>
+                        <ThemedText style={styles.statusLabel}>
+                          Jam/Waktu: <ThemedText style={[styles.statusValue, { color: item.timeStatus?.color }]}>{item.timeStatus?.text}</ThemedText>
+                        </ThemedText>
+                        {item.timeStatus?.detail ? (
+                          <ThemedText style={styles.statusDesc}>{item.timeStatus.detail}</ThemedText>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+
                   <View style={styles.footer}>
                     <View style={[styles.schBadge, { borderColor: item.schColor }]}>
                        <View style={[styles.dot, { backgroundColor: item.schColor }]} />
@@ -230,7 +363,7 @@ export default function HistoryDosen() {
               </View>
             ))
           )}
-          <View style={{ height: 40 }} />
+          <View style={{ height: 120 }} />
         </ScrollView>
       )}
     </View>
@@ -412,5 +545,36 @@ const styles = StyleSheet.create({
   schText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  statusSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    marginBottom: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  statusDetails: {
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  statusValue: {
+    fontWeight: '800',
+  },
+  statusDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
   }
 });

@@ -1,5 +1,4 @@
 import { ThemedText } from "@/components/themed-text";
-import { DosenSidebar } from "@/components/ui/dosen-sidebar";
 import { apiService } from "@/services/api";
 import { storage } from "@/utils/storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,8 +20,8 @@ export default function DosenDashboard() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
-  const [sidebarVisible, setSidebarVisible] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [peminjamanList, setPeminjamanList] = useState<any[]>([]);
   const [userData, setUserData] = useState<any>(null);
 
   // Use professional light theme like admin
@@ -65,16 +64,20 @@ export default function DosenDashboard() {
 
   const fetchSchedules = async (user?: any) => {
     try {
-      const response = await apiService.getJadwal();
-      if (Array.isArray(response.data)) {
+      const [jadwalResp, pinjamResp] = await Promise.all([
+        apiService.getJadwal(),
+        apiService.getPeminjaman()
+      ]);
+
+      const currentUser = user || userData;
+      const lecturerId = String(currentUser?.name || currentUser?.id || "");
+
+      if (jadwalResp.success && Array.isArray(jadwalResp.data)) {
         const now = new Date();
         let currentDay = now.getDay();
         if (currentDay === 0) currentDay = 7;
 
-        const currentUser = user || userData;
-        const lecturerId = String(currentUser?.name || currentUser?.id || "");
-
-        const todaySchedules = response.data.filter((item: any) => {
+        const todaySchedules = jadwalResp.data.filter((item: any) => {
           const isToday = String(item.hari) === String(currentDay);
           const isMine = String(item.dosid || item.dosen_id) === lecturerId;
           return isToday && isMine;
@@ -88,12 +91,68 @@ export default function DosenDashboard() {
 
         setSchedules(todaySchedules);
       }
+
+      if (pinjamResp.success && Array.isArray(pinjamResp.data)) {
+         const todayStr = new Date().toISOString().split('T')[0];
+         const todayPeminjaman = pinjamResp.data.filter((b: any) => {
+            const isMine = String(b.dosen_id) === lecturerId;
+            return isMine && (b.tanggal === todayStr || String(b.tanggal).includes(todayStr));
+         });
+         setPeminjamanList(todayPeminjaman);
+      }
     } catch (error) {
       console.error("Error fetching schedules:", error);
     }
   };
 
   const nextClass = schedules[0];
+  
+  let nextClassStatus = "";
+  let nextClassStatusColor = "";
+  let qrButtonEnabled = false;
+  let qrButtonText = "Tampilkan QR Masuk";
+
+  if (nextClass) {
+    const now = currentTime;
+    const [h, m] = (nextClass.jammulai || nextClass.jam_mulai || "00:00").split(":").map(Number);
+    const classTime = new Date();
+    classTime.setHours(h, m, 0, 0);
+
+    const diffMs = classTime.getTime() - now.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    // Find if there's a peminjaman for this class today
+    const relatedPinjam = [...peminjamanList].reverse().find((p) => {
+      const pTimeStr = (p.waktu_pinjam || "00:00").substring(0, 2);
+      const cTimeStr = (nextClass.jammulai || nextClass.jam_mulai || "00:00").substring(0, 2);
+      return p.ruang_id === (nextClass.ruangid || nextClass.ruang_id) && 
+             Math.abs(Number(pTimeStr) - Number(cTimeStr)) <= 2;
+    });
+
+    if (relatedPinjam) {
+      if (relatedPinjam.status === 'Dipinjam') {
+         nextClassStatus = "Sedang Mengajar";
+         nextClassStatusColor = "#10B981"; // Emerald Green
+         qrButtonText = "Tampilkan QR Keluar";
+         qrButtonEnabled = true;
+      } else if (relatedPinjam.status === 'Kembali') {
+         nextClassStatus = "Selesai Mengajar";
+         nextClassStatusColor = "#64748B"; // Slate Gray
+         qrButtonText = "Selesai";
+         qrButtonEnabled = false;
+      }
+    } else {
+      if (diffMins > 30) {
+         nextClassStatus = "Belum bisa check in";
+         nextClassStatusColor = "#F59E0B"; // Amber
+         qrButtonEnabled = false;
+      } else {
+         nextClassStatus = "Bisa check in";
+         nextClassStatusColor = "#3B82F6"; // Blue
+         qrButtonEnabled = true;
+      }
+    }
+  }
 
   const qrData = `itatsqr1:d:${userData?.name || userData?.id || ""}`;
 
@@ -105,24 +164,13 @@ export default function DosenDashboard() {
         backgroundColor="transparent"
       />
 
-      <DosenSidebar
-        isVisible={sidebarVisible}
-        onClose={() => setSidebarVisible(false)}
-      />
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Modern Header Section */}
         <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => setSidebarVisible(true)}
-            >
-              <Ionicons name="grid-outline" size={24} color="#FFF" />
-            </TouchableOpacity>
+          <View style={[styles.headerTop, { justifyContent: "flex-end" }]}>
             <TouchableOpacity style={styles.profileBtn}>
               <View style={styles.avatarContainer}>
                 <ThemedText style={styles.avatarText}>
@@ -237,18 +285,59 @@ export default function DosenDashboard() {
                   : "--:--"}
               </ThemedText>
             </View>
+            
+            {nextClass && (
+              <View style={[styles.statusTag, { backgroundColor: nextClassStatusColor }]}>
+                <ThemedText style={styles.statusTagText}>
+                  {nextClassStatus}
+                </ThemedText>
+              </View>
+            )}
 
             <TouchableOpacity
-              style={styles.qrButton}
+              style={[styles.qrButton, !qrButtonEnabled && { opacity: 0.5 }]}
               onPress={() => setModalVisible(true)}
-              disabled={!nextClass}
+              disabled={!qrButtonEnabled}
             >
               <Ionicons name="qr-code" size={20} color={theme.primary} />
               <ThemedText style={styles.qrButtonText}>
-                Tampilkan QR Masuk
+                {nextClass ? qrButtonText : "Tampilkan QR Masuk"}
               </ThemedText>
             </TouchableOpacity>
           </TouchableOpacity>
+        </View>
+
+        {/* Quick Access Menu */}
+        <View style={styles.quickAccessContainer}>
+          <View style={styles.quickAccessGrid}>
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => router.push('/dashboard-dosen/jadwal')}>
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="calendar-outline" size={28} color="#2563EB" />
+              </View>
+              <ThemedText style={styles.quickAccessText}>Jadwal</ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => router.push('/dashboard-dosen/history')}>
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="time-outline" size={28} color="#16A34A" />
+              </View>
+              <ThemedText style={styles.quickAccessText}>Riwayat</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => router.push('/dashboard-dosen/profile')}>
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#FEFCE8' }]}>
+                <Ionicons name="person-outline" size={28} color="#CA8A04" />
+              </View>
+              <ThemedText style={styles.quickAccessText}>Profil</ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => router.push('/dashboard-dosen/profile')}>
+              <View style={[styles.quickAccessIcon, { backgroundColor: '#F8FAFC' }]}>
+                <Ionicons name="settings-outline" size={28} color="#64748B" />
+              </View>
+              <ThemedText style={styles.quickAccessText}>Pengaturan</ThemedText>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Upcoming Schedule */}
@@ -547,7 +636,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 24,
+    marginBottom: 12,
+  },
+  statusTag: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  statusTagText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "700",
   },
   courseTime: {
     color: "rgba(255,255,255,0.8)",
@@ -567,6 +668,42 @@ const styles = StyleSheet.create({
     color: "#2563EB",
     fontWeight: "800",
     fontSize: 15,
+  },
+  quickAccessContainer: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  quickAccessGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#FFF",
+    padding: 20,
+    borderRadius: 24,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  quickAccessItem: {
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  quickAccessIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  quickAccessText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#475569",
+    textAlign: "center",
   },
   scheduleSection: {
     marginTop: 32,

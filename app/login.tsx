@@ -30,26 +30,28 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   // Check if user is already logged in
   React.useEffect(() => {
     const checkAuth = async () => {
-      const token = await storage.getItem("auth_token");
-      const userData = await storage.getItem("user_data");
-      
-      if (token && userData) {
-        try {
+      try {
+        const userData = await storage.getItem("user_data");
+        if (userData) {
           const user = JSON.parse(userData);
           // Redirect based on role/username pattern
           if (user.name?.startsWith("CSR") || user.role === "admin" || user.nip === "522002240020") {
             router.replace("/dashboard-admin");
+            return; // Exit without setting isCheckingAuth to false to avoid flash
           } else {
             router.replace("/dashboard-dosen");
+            return; // Exit without setting isCheckingAuth to false to avoid flash
           }
-        } catch (e) {
-          console.error("Error parsing stored user data", e);
         }
+      } catch (e) {
+        console.error("Error parsing stored user data in login check", e);
       }
+      setIsCheckingAuth(false);
     };
     checkAuth();
   }, []);
@@ -82,8 +84,8 @@ export default function LoginScreen() {
           text2: `Selamat datang, ${user?.name || nip}!`,
         });
 
-        // Simpan token dan data user secara persistent
-        if (response.token) await storage.setItem("auth_token", response.token);
+        // Simpan token dan data user secara persistent (dengan fallback dummy token agar route guard tidak bingung)
+        await storage.setItem("auth_token", response.token || "authenticated_dummy_token");
         await storage.setItem("user_data", JSON.stringify(user));
 
         if (role === "admin" || nip.startsWith("CSR") || nip === "522002240020") {
@@ -110,6 +112,14 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#111827", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

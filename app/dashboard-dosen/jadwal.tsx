@@ -123,7 +123,7 @@ export default function JadwalDosen() {
             <ThemedText style={styles.emptySubText}>Seluruh jadwal mengajar Anda akan muncul di sini.</ThemedText>
           </View>
         )}
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
     </View>
   );

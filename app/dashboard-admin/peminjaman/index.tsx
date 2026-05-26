@@ -6,6 +6,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
 import Toast from 'react-native-toast-message';
+import { storage } from '@/utils/storage';
 
 export default function PeminjamanRuangScreen() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function PeminjamanRuangScreen() {
   const today = new Date().toISOString().split('T')[0];
   
   const [borrowings, setBorrowings] = React.useState<any[]>([]);
+  const [dosenList, setDosenList] = React.useState<any[]>([]);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedDate, setSelectedDate] = React.useState(today);
   const [loading, setLoading] = React.useState(true);
@@ -41,10 +43,25 @@ export default function PeminjamanRuangScreen() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Load cached dosen list first for immediate display
+      const cachedDosen = await storage.getItem("cached_dosen");
+      if (cachedDosen) {
+        setDosenList(JSON.parse(cachedDosen));
+      }
+
       const response = await apiService.getPeminjaman(selectedDate);
       if (response.success) {
         setBorrowings(response.data);
       }
+
+      // Fetch fresh dosen list in the background
+      apiService.getDosen().then(dosenRes => {
+        if (dosenRes.success) {
+          setDosenList(dosenRes.data);
+          storage.setItem("cached_dosen", JSON.stringify(dosenRes.data)).catch(() => {});
+        }
+      }).catch(err => console.error('Error fetching dosen:', err));
+
     } catch (error) {
       console.error('Error fetching borrowings:', error);
     } finally {
@@ -66,7 +83,7 @@ export default function PeminjamanRuangScreen() {
     
     // Update local state untuk UI instan
     setBorrowings(prev => prev.map(item => 
-      item.id === id ? { ...item, status: 'Kembali', waktu_kembali: fullTime } : item
+      item.id === id ? { ...item, status: 'Kembali', waktu_kembali: fullTime, dosid_pengembalian: dosenId } : item
     ));
     
     // Update di API/Persistence
@@ -77,6 +94,27 @@ export default function PeminjamanRuangScreen() {
       text1: 'Ruangan Dikembalikan',
       text2: 'Status peminjaman telah diperbarui.'
     });
+  };
+
+  const getPengembaliName = (item: any) => {
+    if (item.status !== 'Kembali') {
+      return '-';
+    }
+    
+    if (item.dosid_pengembalian) {
+      const matchedDosen = dosenList.find((d: any) => 
+        String(d.dosid).trim().toLowerCase() === String(item.dosid_pengembalian).trim().toLowerCase()
+      );
+      if (matchedDosen) {
+        return matchedDosen.dosnama;
+      }
+    }
+    
+    if (item.input_kembali_name) {
+      return item.input_kembali_name;
+    }
+    
+    return item.dosid_pengembalian || 'N/A';
   };
 
   const filteredBorrowings = borrowings.filter(item => 
@@ -131,6 +169,10 @@ export default function PeminjamanRuangScreen() {
         <View style={styles.detailItem}>
           <Ionicons name="checkmark-circle-outline" size={14} color={theme.mutedText} />
           <ThemedText style={[styles.detailValue, { color: theme.text }]}>Kembali: {item.waktu_kembali || '-'}</ThemedText>
+        </View>
+        <View style={styles.detailItem}>
+          <Ionicons name="person-outline" size={14} color={theme.mutedText} />
+          <ThemedText style={[styles.detailValue, { color: theme.text }]}>Pengembali: {getPengembaliName(item)}</ThemedText>
         </View>
       </View>
 
@@ -304,7 +346,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 120,
     gap: 16,
   },
   card: {

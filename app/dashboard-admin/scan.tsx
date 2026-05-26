@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, useColorScheme, Platform, StatusBar, ScrollView, Modal } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, useColorScheme, Platform, StatusBar, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import Toast from 'react-native-toast-message';
 import { apiService } from '@/services/api';
+import { storage } from '@/utils/storage';
 
 import { AdminHeader } from '@/components/ui/admin-header';
 
@@ -17,6 +18,7 @@ export default function AdminScan() {
   const [isCameraActive, setIsCameraActive] = React.useState(true);
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [lecturers, setLecturers] = React.useState<any[]>([]);
+  const [schedules, setSchedules] = React.useState<any[]>([]);
   const [step, setStep] = React.useState(1); // 1: Scan Ruang, 2: Scan Dosen
   const [scanMode, setScanMode] = React.useState<'pinjam' | 'kembali'>('pinjam'); // Mode Scan
   const [selectedRoom, setSelectedRoom] = React.useState<any>(null);
@@ -48,17 +50,34 @@ export default function AdminScan() {
   
   const fetchMasterData = async () => {
     try {
-      const [ruangResp, dosenResp] = await Promise.all([
-        apiService.getRuang(500),
-        apiService.getDosen()
+      // Load cached data first for instant scanner availability
+      const cachedDosen = await storage.getItem("cached_dosen");
+      const cachedJadwal = await storage.getItem("cached_jadwal");
+      if (cachedDosen) {
+        setLecturers(JSON.parse(cachedDosen));
+      }
+      if (cachedJadwal) {
+        setSchedules(JSON.parse(cachedJadwal));
+      }
+
+      const [ruangResp, dosenResp, jadwalResp] = await Promise.all([
+        apiService.getRuang(),
+        apiService.getDosen(),
+        apiService.getJadwal()
       ]);
       
       if (ruangResp.success) {
-        setRooms(ruangResp.data?.data || ruangResp.data || []);
+        setRooms(ruangResp.data || []);
       }
       
       if (dosenResp.success) {
         setLecturers(dosenResp.data || []);
+        await storage.setItem("cached_dosen", JSON.stringify(dosenResp.data));
+      }
+
+      if (jadwalResp.success) {
+        setSchedules(jadwalResp.data || []);
+        await storage.setItem("cached_jadwal", JSON.stringify(jadwalResp.data));
       }
     } catch (e) {
       console.error("Failed to fetch master data for scanner", e);
@@ -152,7 +171,90 @@ export default function AdminScan() {
 
       try {
         if (scanMode === 'pinjam') {
-          // --- LOGIKA PINJAM ---
+          // --- VALIDASI JADWAL DOSEN ---
+          const nowTime = new Date();
+          let currentDay = nowTime.getDay();
+          if (currentDay === 0) currentDay = 7; // Map Minggu to 7
+          const currentHours = nowTime.getHours();
+          const currentMinutes = nowTime.getMinutes();
+          const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+          const parseTimeToMinutes = (timeStr: string) => {
+            if (!timeStr) return 0;
+            const parts = timeStr.split(':');
+            const hrs = parseInt(parts[0], 10) || 0;
+            const mins = parseInt(parts[1], 10) || 0;
+            return hrs * 60 + mins;
+          };
+
+          const formatMinutesToTime = (totalMinutes: number) => {
+            const hrs = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+          };
+
+          // Cari jadwal dosen pada ruangan dan hari ini
+          const matchingSchedules = schedules.filter((s: any) => {
+            const sDosId = String(s.dosid || s.dosen_id || '').trim().toLowerCase();
+            const sRoomId = String(s.ruangid || s.ruang_id || '').trim().toLowerCase();
+            const sHari = String(s.hari).trim();
+            
+            return sDosId === String(dosenId).trim().toLowerCase() &&
+                   sRoomId === String(selectedRoom.ruangid).trim().toLowerCase() &&
+                   sHari === String(currentDay);
+          });
+
+          if (matchingSchedules.length === 0) {
+            setErrorModal({
+              visible: true,
+              title: 'Peminjaman Ditolak',
+              message: `Dosen ${foundDosen?.dosnama || dosenId} tidak memiliki jadwal mengajar di ruang ${selectedRoom.ruangid} pada hari ini.`,
+              type: 'error'
+            });
+            setTimeout(() => setScanned(false), 3000);
+            return;
+          }
+
+          // Periksa waktu toleransi (mulai dari 10 menit sebelum jam kuliah hingga jam selesai kuliah)
+          const validSchedule = matchingSchedules.find((s: any) => {
+            const startMins = parseTimeToMinutes(s.jammulai || s.jam_mulai);
+            const endMins = parseTimeToMinutes(s.jamhingga || s.jam_hingga);
+            const allowedStart = startMins - 10;
+            return currentTotalMinutes >= allowedStart && currentTotalMinutes < endMins;
+          });
+
+          if (!validSchedule) {
+            // Cek apakah ada jadwal yang akan datang hari ini
+            const upcomingSchedule = matchingSchedules.find((s: any) => {
+              const startMins = parseTimeToMinutes(s.jammulai || s.jam_mulai);
+              return currentTotalMinutes < startMins - 10;
+            });
+
+            if (upcomingSchedule) {
+              const startStr = (upcomingSchedule.jammulai || upcomingSchedule.jam_mulai).substring(0, 5);
+              const allowedStartMins = parseTimeToMinutes(upcomingSchedule.jammulai || upcomingSchedule.jam_mulai) - 10;
+              const allowedStartStr = formatMinutesToTime(allowedStartMins);
+              
+              setErrorModal({
+                visible: true,
+                title: 'Belum Waktunya',
+                message: `Kuliah baru dimulai pukul ${startStr}. Dosen hanya diperbolehkan mengambil kunci ruang mulai pukul ${allowedStartStr} (toleransi 10 menit).`,
+                type: 'error'
+              });
+            } else {
+              setErrorModal({
+                visible: true,
+                title: 'Jadwal Selesai',
+                message: `Jadwal mengajar Dosen ${foundDosen?.dosnama || dosenId} di ruangan ini pada hari ini sudah selesai.`,
+                type: 'error'
+              });
+            }
+            
+            setTimeout(() => setScanned(false), 3000);
+            return;
+          }
+
+          // --- LOGIKA PINJAM JIKA LAYAK ---
           const today = new Date().toISOString().split('T')[0];
           const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
 
@@ -202,6 +304,8 @@ export default function AdminScan() {
             } else {
               throw new Error("Tidak ditemukan data peminjaman aktif untuk Dosen & Ruangan ini.");
             }
+          } else {
+            throw new Error("Gagal mengambil data riwayat peminjaman.");
           }
         }
       } catch (error: any) {
@@ -214,6 +318,20 @@ export default function AdminScan() {
         setScanned(false);
       }
     }
+  };
+
+  const handleRefreshScanner = () => {
+    setScanned(false);
+    setIsCameraActive(false);
+    setTimeout(() => {
+      setIsCameraActive(true);
+      Toast.show({
+        type: 'success',
+        text1: 'Scanner Di-refresh',
+        text2: 'Kamera dan sistem pemindai telah dimulai ulang.',
+        visibilityTime: 2000,
+      });
+    }, 100);
   };
 
   if (!permission) {
@@ -263,10 +381,22 @@ export default function AdminScan() {
             <View style={styles.mainScanCard}>
               <View style={styles.cardInfo}>
                 <View style={styles.cardTitleRow}>
-                  <View>
-                    <ThemedText style={styles.stepTitle}>
-                      {step === 1 ? 'Langkah 1: Ruangan' : 'Langkah 2: Peminjam'}
-                    </ThemedText>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <ThemedText style={styles.stepTitle}>
+                        {step === 1 ? 'Langkah 1: Ruangan' : 'Langkah 2: Peminjam'}
+                      </ThemedText>
+                      {step === 1 && (
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          style={styles.inlineResetBtn}
+                          onPress={handleRefreshScanner}
+                        >
+                          <Ionicons name="refresh" size={12} color="#64748B" />
+                          <ThemedText style={styles.inlineResetBtnText}>Reset</ThemedText>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <ThemedText style={styles.stepDesc}>
                       {step === 1 
                         ? 'Scan QR Code pada pintu ruang' 
@@ -281,11 +411,30 @@ export default function AdminScan() {
                 </View>
                 
                 {step === 2 && selectedRoom && (
-                  <View style={[styles.roomPill, { backgroundColor: scanMode === 'pinjam' ? '#EFF6FF' : '#FEF2F2' }]}>
-                    <Ionicons name="business" size={14} color={scanMode === 'pinjam' ? theme.primary : '#EF4444'} />
-                    <ThemedText style={[styles.roomPillText, { color: scanMode === 'pinjam' ? theme.primary : '#EF4444' }]}>
-                      Ruang Terpilih: {selectedRoom.ruangid}
-                    </ThemedText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16 }}>
+                    <View style={[styles.roomPill, { flex: 1, marginTop: 0, backgroundColor: scanMode === 'pinjam' ? '#EFF6FF' : '#FEF2F2' }]}>
+                      <Ionicons name="business" size={14} color={scanMode === 'pinjam' ? theme.primary : '#EF4444'} />
+                      <ThemedText style={[styles.roomPillText, { color: scanMode === 'pinjam' ? theme.primary : '#EF4444' }]} numberOfLines={1}>
+                        Ruang: {selectedRoom.ruangket || selectedRoom.ruangid}
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      style={styles.resetStepBtn}
+                      onPress={() => {
+                        setStep(1);
+                        setSelectedRoom(null);
+                        setScanned(false);
+                        Toast.show({
+                          type: 'info',
+                          text1: 'Scanner Direset',
+                          text2: 'Silakan scan ulang QR Ruangan.',
+                        });
+                      }}
+                    >
+                      <Ionicons name="refresh-outline" size={14} color="#64748B" />
+                      <ThemedText style={styles.resetStepText}>Ulangi</ThemedText>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -312,7 +461,7 @@ export default function AdminScan() {
                       <CameraView
                           style={StyleSheet.absoluteFillObject}
                           facing="back"
-                          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                          onBarcodeScanned={handleBarCodeScanned}
                           barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                       >
                           <View style={styles.overlay}>
@@ -328,6 +477,13 @@ export default function AdminScan() {
                               </View>
                               <ThemedText style={styles.helperText}>Scan QR Code dengan kotak di atas</ThemedText>
                           </View>
+                          
+                          {scanned && (
+                              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 20 }]}>
+                                  <ActivityIndicator size="large" color={scanMode === 'pinjam' ? theme.primary : '#EF4444'} />
+                                  <ThemedText style={{ color: '#FFF', marginTop: 12, fontWeight: '700' }}>Memproses QR Code...</ThemedText>
+                              </View>
+                          )}
                       </CameraView>
                   </View>
                 )}
@@ -610,5 +766,37 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+  resetStepBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  resetStepText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  inlineResetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  inlineResetBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
   }
 });

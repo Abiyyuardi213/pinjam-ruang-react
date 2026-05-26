@@ -16,6 +16,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
+import Svg, {
+  Circle,
+  Defs,
+  RadialGradient,
+  Stop,
+  Pattern,
+  Rect,
+  Path
+} from "react-native-svg";
 
 export default function AdminDashboard() {
    const insets = useSafeAreaInsets();
@@ -299,6 +308,66 @@ export default function AdminDashboard() {
       >
         {/* Modern Header Area */}
         <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
+          {/* Header Wallpaper/Motif Background */}
+          <Svg style={StyleSheet.absoluteFillObject} width="100%" height="100%">
+            <Defs>
+              {/* Dot Grid Pattern */}
+              <Pattern id="headerDotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <Circle cx="2" cy="2" r="1.2" fill="#94A3B8" opacity="0.15" />
+              </Pattern>
+              
+              {/* Radial Glow Top Right */}
+              <RadialGradient id="glowRight" cx="85%" cy="20%" rx="60%" ry="60%" fx="85%" fy="20%">
+                <Stop offset="0%" stopColor="#3B82F6" stopOpacity="0.35" />
+                <Stop offset="60%" stopColor="#1E293B" stopOpacity="0.1" />
+                <Stop offset="100%" stopColor="#1E293B" stopOpacity="0" />
+              </RadialGradient>
+              
+              {/* Radial Glow Center Left */}
+              <RadialGradient id="glowLeft" cx="15%" cy="75%" rx="50%" ry="50%" fx="15%" fy="75%">
+                <Stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.3" />
+                <Stop offset="60%" stopColor="#1E293B" stopOpacity="0.05" />
+                <Stop offset="100%" stopColor="#1E293B" stopOpacity="0" />
+              </RadialGradient>
+            </Defs>
+            
+            {/* Base color overlay to blend glows */}
+            <Rect width="100%" height="100%" fill="#1E293B" />
+            
+            {/* Glow Blobs */}
+            <Rect width="100%" height="100%" fill="url(#glowRight)" />
+            <Rect width="100%" height="100%" fill="url(#glowLeft)" />
+            
+            {/* Dot Grid Pattern Overlay */}
+            <Rect width="100%" height="100%" fill="url(#headerDotGrid)" />
+            
+            {/* Decorative Vector Circles (Top Right) */}
+            <Circle cx="90%" cy="15%" r="50" stroke="#3B82F6" strokeWidth="1" fill="none" opacity="0.2" />
+            <Circle cx="90%" cy="15%" r="90" stroke="#3B82F6" strokeWidth="1" fill="none" opacity="0.12" strokeDasharray="4 4" />
+            <Circle cx="90%" cy="15%" r="130" stroke="#8B5CF6" strokeWidth="1.5" fill="none" opacity="0.08" />
+            
+            {/* Decorative Vector Circles (Bottom Left) */}
+            <Circle cx="10%" cy="85%" r="70" stroke="#8B5CF6" strokeWidth="1" fill="none" opacity="0.15" />
+            <Circle cx="10%" cy="85%" r="120" stroke="#3B82F6" strokeWidth="1" fill="none" opacity="0.08" strokeDasharray="6 3" />
+            
+            {/* Sleek Tech Lines */}
+            <Path 
+              d="M-20,60 Q40,40 100,-20 T200,-80" 
+              stroke="#3B82F6" 
+              strokeWidth="1.5" 
+              fill="none" 
+              opacity="0.15" 
+            />
+            <Path 
+              d="M-10,75 Q50,55 110,-5 T210,-65" 
+              stroke="#8B5CF6" 
+              strokeWidth="1" 
+              fill="none" 
+              opacity="0.1" 
+              strokeDasharray="2 2"
+            />
+          </Svg>
+
           <View style={styles.headerTop}>
             <View />
             <TouchableOpacity
@@ -569,6 +638,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
+    overflow: "hidden",
   },
   headerTop: {
     flexDirection: "row",

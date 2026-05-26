@@ -249,32 +249,38 @@ export default function AdminMonitor() {
   };
 
   const getFilteredItems = () => {
-    return activeItems.filter((item) => {
-      // 1. Filter by Building
-      if (selectedBuilding !== "Semua Gedung") {
-        const itemBuildingName = getRoomBuildingName(item.room.ruangid || item.room.nama_ruang);
-        if (itemBuildingName !== selectedBuilding) {
+    return activeItems
+      .filter((item) => {
+        // 1. Filter by Building
+        if (selectedBuilding !== "Semua Gedung") {
+          const itemBuildingName = getRoomBuildingName(item.room.ruangid || item.room.nama_ruang);
+          if (itemBuildingName !== selectedBuilding) {
+            return false;
+          }
+        }
+
+        // 2. Filter by category
+        if (activeFilter !== "semua" && item.statusCategory !== activeFilter) {
           return false;
         }
-      }
-
-      // 2. Filter by category
-      if (activeFilter !== "semua" && item.statusCategory !== activeFilter) {
-        return false;
-      }
-      
-      // 3. Filter by search query
-      const query = searchQuery.toLowerCase();
-      const roomId = String(item.room.ruangid || item.room.nama_ruang || "").toLowerCase();
-      const dosen = String(item.dosen || "").toLowerCase();
-      const keterangan = String(item.keterangan || "").toLowerCase();
-      
-      return (
-        roomId.includes(query) ||
-        dosen.includes(query) ||
-        keterangan.includes(query)
-      );
-    });
+        
+        // 3. Filter by search query
+        const query = searchQuery.toLowerCase();
+        const roomId = String(item.room.ruangid || item.room.nama_ruang || "").toLowerCase();
+        const dosen = String(item.dosen || "").toLowerCase();
+        const keterangan = String(item.keterangan || "").toLowerCase();
+        
+        return (
+          roomId.includes(query) ||
+          dosen.includes(query) ||
+          keterangan.includes(query)
+        );
+      })
+      .sort((a, b) => {
+        const labelA = String(a.room.ruangid || a.room.nama_ruang || a.room.id || "");
+        const labelB = String(b.room.ruangid || b.room.nama_ruang || b.room.id || "");
+        return labelA.localeCompare(labelB);
+      });
   };
 
   const fetchData = React.useCallback(async (isPolling: boolean | any = false) => {
@@ -356,7 +362,7 @@ export default function AdminMonitor() {
         let dosen = "-";
         let keterangan = "Ruangan Kosong";
         let time = "-";
-        let borrowInfo = {
+        let borrowInfo: { status: string; type: string; actualRoom: string | null } = {
           status: "Tersedia & Kosong",
           type: "success",
           actualRoom: null
