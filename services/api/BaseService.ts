@@ -1,7 +1,8 @@
 import { Platform } from "react-native";
 
-export const BASE_URL = "https://admin-classroom.itats.ac.id/api/v1";
-export const API_KEY = "UEjcau8DQBKsg76ySbDdWy5mRyx8vZNJvELhhY7xkhovLpWEfyBd1r4XMXDeGCe4";
+export const BASE_URL = "https://admin.itats.ac.id/api/v1";
+export const API_KEY =
+  "UEjcau8DQBKsg76ySbDdWy5mRyx8vZNJvELhhY7xkhovLpWEfyBd1r4XMXDeGCe4";
 
 export class BaseService {
   public static async request(path: string, options: any = {}) {
@@ -44,7 +45,11 @@ export class BaseService {
     }
   }
 
-  public static async fetchAll(endpoint: string, params: string = "", maxPages: number = 999) {
+  public static async fetchAll(
+    endpoint: string,
+    params: string = "",
+    maxPages: number = 999,
+  ) {
     let allData: any[] = [];
     let currentPage = 1;
     let lastPage = 1;
@@ -56,14 +61,17 @@ export class BaseService {
         const json = await this.request(url);
 
         if (json && json.success) {
-          const pageData = json.data?.data || (Array.isArray(json.data) ? json.data : []);
+          const pageData =
+            json.data?.data || (Array.isArray(json.data) ? json.data : []);
 
           if (Array.isArray(pageData)) {
             allData = [...allData, ...pageData];
           }
 
           lastPage = json.data?.last_page || 1;
-          console.log(`[API PAGINATION] ${endpoint}: Fetched page ${currentPage}/${lastPage}.`);
+          console.log(
+            `[API PAGINATION] ${endpoint}: Fetched page ${currentPage}/${lastPage}.`,
+          );
         } else {
           break;
         }
